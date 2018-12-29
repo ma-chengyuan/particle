@@ -1,0 +1,1 @@
+{"rustc":15319571246463910461,"features":"[]","target":15052855891664167620,"profile":11651009168397627192,"path":1036222786711178230,"deps":[["multimap v0.4.0","multimap",14748664794178677628]],"local":[{"MtimeBased":[[1545658252,417843500],".fingerprint\\particle-0d2da7b926420019\\dep-test-bin-particle-0d2da7b926420019"]}],"rustflags":[],"edition":"Edition2018"}

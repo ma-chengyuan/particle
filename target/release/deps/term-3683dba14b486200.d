@@ -1,0 +1,11 @@
+D:\Rust\particle\target\release\deps\libterm-3683dba14b486200.rlib: C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\lib.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\mod.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\searcher.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parser\compiled.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parser\names.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parm.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\win.rs
+
+D:\Rust\particle\target\release\deps\term-3683dba14b486200.d: C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\lib.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\mod.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\searcher.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parser\compiled.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parser\names.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parm.rs C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\win.rs
+
+C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\lib.rs:
+C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\mod.rs:
+C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\searcher.rs:
+C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parser\compiled.rs:
+C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parser\names.rs:
+C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\terminfo\parm.rs:
+C:\Users\Alan\ Ma\.cargo\registry\src\github.com-1ecc6299db9ec823\term-0.4.6\src\win.rs:

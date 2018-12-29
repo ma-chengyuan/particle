@@ -1,0 +1,22 @@
+[package]
+name = "particle"
+version = "0.1.0"
+authors = ["alan20210202 <little_alanma@163.com>"]
+edition = "2018"
+
+[lib]
+name = "particle"
+path = "src/lib.rs"
+
+[dependencies]
+multimap = "0.4.0"
+rustc-hash = "1.0.1"
+utf8-ranges = "1.0.2"
+
+[dev-dependencies]
+criterion = "0.1.2"
+rand = "0.6.1"
+
+[[bench]]
+name = "benchmark"
+harness = false
