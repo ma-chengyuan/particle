@@ -19,8 +19,8 @@ enum Transition {
     Epsilon,
 }
 
-type StateId = usize;
-type BranchId = usize;
+pub type StateId = usize;
+pub type BranchId = usize;
 type StateSet = BTreeSet<StateId>;
 const DEFAULT_BRANCH_NUMBER: BranchId = 0;
 
