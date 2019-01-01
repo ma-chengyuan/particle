@@ -10,6 +10,7 @@ use multimap::MultiMap;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::cmp;
 use std::collections::BTreeSet;
+use std::ops::{BitAnd, BitOr};
 use utf8_ranges::Utf8Sequences;
 
 /// Type of transitions.
@@ -100,9 +101,9 @@ impl From<(char, char)> for NFA {
     }
 }
 
-impl From<&DFA> for NFA {
+impl From<DFA> for NFA {
     /// Converts a DFA back to NFA, all branch informations WILL BE LOST.
-    fn from(dfa: &DFA) -> Self {
+    fn from(dfa: DFA) -> Self {
         let mut ret = NFA::new();
         ret.initial_state = dfa.initial_state;
         ret.final_states
@@ -111,6 +112,55 @@ impl From<&DFA> for NFA {
             dfa.transitions
                 .iter()
                 .map(|((from, b), to)| ((*from, Transition::Input(*b)), *to)),
+        );
+        ret
+    }
+}
+
+impl BitAnd for NFA {
+    type Output = NFA;
+    fn bitand(self, rhs: NFA) -> NFA {
+        let mut ret = self;
+        let bias = ret.max_state_id() + 1;
+        let old_final_states = ret.final_states;
+        ret.final_states = rhs
+            .final_states
+            .iter()
+            .map(|(x, br)| (x + bias, *br))
+            .collect();
+        ret.transitions.extend(
+            old_final_states
+                .iter()
+                .map(|(x, _)| ((*x, Transition::Epsilon), rhs.initial_state + bias)),
+        );
+        ret.transitions.extend(
+            rhs.transitions
+                .iter()
+                .map(|((from, trans), to)| ((from + bias, *trans), to + bias)),
+        );
+        ret
+    }
+}
+
+impl BitOr for NFA {
+    type Output = NFA;
+    fn bitor(self, rhs: NFA) -> NFA {
+        let mut ret = self;
+        let bias = ret.max_state_id() + 1;
+        ret.final_states
+            .extend(rhs.final_states.iter().map(|(x, br)| (x + bias, *br)));
+        ret.transitions.extend(
+            rhs.transitions
+                .iter()
+                .map(|((from, trans), to)| ((from + bias, *trans), to + bias)),
+        );
+        let old_initial = ret.initial_state;
+        ret.initial_state = bias + rhs.max_state_id() + 1;
+        ret.transitions
+            .insert((ret.initial_state, Transition::Epsilon), old_initial);
+        ret.transitions.insert(
+            (ret.initial_state, Transition::Epsilon),
+            rhs.initial_state + bias,
         );
         ret
     }
@@ -178,91 +228,15 @@ impl NFA {
         }
     }
 
-    /// Performs concatenation on two NFAs, `self` comes first.
-    pub fn and(&self, another: &NFA) -> NFA {
-        let mut ret = self.clone();
-        let bias = ret.max_state_id() + 1;
-        ret.final_states = another
+    /// Repeats `self` by >=0 times (`*` in regex).
+    pub fn zero_or_more(self) -> NFA {
+        let mut ret = self;
+        let new_transisions: FxHashMap<(StateId, Transition), StateId> = ret
             .final_states
             .iter()
-            .map(|(x, br)| (x + bias, *br))
+            .map(|(x, _)| ((*x, Transition::Epsilon), ret.initial_state))
             .collect();
-        ret.transitions.extend(
-            self.final_states
-                .iter()
-                .map(|(x, _)| ((*x, Transition::Epsilon), another.initial_state + bias)),
-        );
-        ret.transitions.extend(
-            another
-                .transitions
-                .iter()
-                .map(|((from, trans), to)| ((from + bias, *trans), to + bias)),
-        );
-        ret
-    }
-
-    /// Performs branch selection on two NFAs.
-    pub fn or(&self, another: &NFA) -> NFA {
-        let mut ret = self.clone();
-        let bias = ret.max_state_id() + 1;
-        ret.final_states
-            .extend(another.final_states.iter().map(|(x, br)| (x + bias, *br)));
-        ret.transitions.extend(
-            another
-                .transitions
-                .iter()
-                .map(|((from, trans), to)| ((from + bias, *trans), to + bias)),
-        );
-        ret.initial_state = bias + another.max_state_id() + 1;
-        ret.transitions
-            .insert((ret.initial_state, Transition::Epsilon), self.initial_state);
-        ret.transitions.insert(
-            (ret.initial_state, Transition::Epsilon),
-            another.initial_state + bias,
-        );
-        ret
-    }
-
-    /// Performs negation on `self`, returning the result as a new NFA.
-    pub fn not(&self) -> NFA {
-        let mut dfa = DFA::from(self);
-        let states =
-            dfa.transitions
-                .iter()
-                .fold(FxHashSet::default(), |mut acc, ((from, _), to)| {
-                    acc.insert(*from);
-                    acc.insert(*to);
-                    acc
-                });
-        let dead_state = states.iter().max().cloned().unwrap_or(0) + 1;
-        for s in &states {
-            for b in 0..=u8::max_value() {
-                dfa.transitions.insert((*s, b), dead_state);
-            }
-        }
-        let mut ret = NFA::from(&dfa);
-        ret.final_states = states
-            .iter()
-            .filter_map(|x| {
-                if dfa.final_states.contains_key(x) {
-                    None
-                } else {
-                    Some((*x, DEFAULT_BRANCH_NUMBER))
-                }
-            })
-            .collect();
-        ret.final_states.insert(dead_state, DEFAULT_BRANCH_NUMBER);
-        ret
-    }
-
-    /// Repeats `self` by >=0 times (`*` in regex).
-    pub fn zero_or_more(&self) -> NFA {
-        let mut ret = self.clone();
-        ret.transitions.extend(
-            self.final_states
-                .iter()
-                .map(|(x, _)| ((*x, Transition::Epsilon), self.initial_state)),
-        );
+        ret.transitions.extend(new_transisions);
         ret.final_states.clear();
         ret.final_states
             .insert(ret.initial_state, DEFAULT_BRANCH_NUMBER);
@@ -270,8 +244,9 @@ impl NFA {
     }
 
     /// Repeats `self` by >=1 times (`+` in regex).
-    pub fn one_or_more(&self) -> NFA {
-        self.and(&self.zero_or_more())
+    pub fn one_or_more(self) -> NFA {
+        let temp = self.clone().zero_or_more();
+        self & temp
     }
 
     /// Makes `self` optional (0/1 times).
@@ -294,9 +269,9 @@ pub struct DFA {
     transitions: FxHashMap<(StateId, u8), BranchId>,
 }
 
-impl From<&NFA> for DFA {
+impl From<NFA> for DFA {
     /// Constructs the DFA from a NFA using subset construction.
-    fn from(nfa: &NFA) -> Self {
+    fn from(nfa: NFA) -> Self {
         let mut ret = DFA::new();
         let mut states = FxHashMap::default();
         let initial_state = nfa.epsilon_closure(nfa.initial_state);
