@@ -10,6 +10,7 @@ use multimap::MultiMap;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::cmp;
 use std::collections::BTreeSet;
+use std::fmt::*;
 use std::ops::{BitAnd, BitOr};
 use utf8_ranges::Utf8Sequences;
 
@@ -23,6 +24,7 @@ enum Transition {
 pub type StateId = usize;
 pub type BranchId = usize;
 type StateSet = BTreeSet<StateId>;
+// Default branch number for final states whose branch number is not explicitly specified
 const DEFAULT_BRANCH_NUMBER: BranchId = 0;
 
 /// Nondeterministic Finite Automaton.
@@ -30,18 +32,7 @@ const DEFAULT_BRANCH_NUMBER: BranchId = 0;
 /// The inside implementation of the automaton is based on `u8`,
 /// therefore a character transition may be represented as **multiple edges** in
 /// the NFA depending on its UTF-8 encoding.
-///
-/// # Example
-/// Consider the regex to match C Strings (`\"([^\\\"]|\\.)*\"`):
-/// ```
-/// let quote = NFA::from('"');
-/// let non_escape = NFA::from('"').or(&NFA::from('\\')).not();
-/// let escape = NFA::from('\\').and(&NFA::from(('\u{0000}', '\u{ffff}')));
-/// let string = quote
-///     .and(&escape.or(&non_escape).zero_or_more())
-///     .and(&quote);
-/// ```
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NFA {
     initial_state: StateId,
     final_states: FxHashMap<StateId, BranchId>,
@@ -70,9 +61,9 @@ impl From<char> for NFA {
         let mut buf = [0; 4];
         let mut last = 0;
 
-        for b in ch.encode_utf8(&mut buf).as_bytes() {
+        for &b in ch.encode_utf8(&mut buf).as_bytes() {
             ret.transitions
-                .insert((last, Transition::Input(*b)), last + 1);
+                .insert((last, Transition::Input(b)), last + 1);
             last += 1;
         }
         ret.final_states.insert(last, DEFAULT_BRANCH_NUMBER);
@@ -107,11 +98,11 @@ impl From<DFA> for NFA {
         let mut ret = NFA::new();
         ret.initial_state = dfa.initial_state;
         ret.final_states
-            .extend(dfa.final_states.keys().map(|x| (*x, DEFAULT_BRANCH_NUMBER)));
+            .extend(dfa.final_states.keys().map(|&x| (x, DEFAULT_BRANCH_NUMBER)));
         ret.transitions.extend(
             dfa.transitions
                 .iter()
-                .map(|((from, b), to)| ((*from, Transition::Input(*b)), *to)),
+                .map(|(&(from, b), &to)| ((from, Transition::Input(b)), to)),
         );
         ret
     }
@@ -123,20 +114,27 @@ impl BitAnd for NFA {
         let mut ret = self;
         let bias = ret.max_state_id() + 1;
         let old_final_states = ret.final_states;
+        // The final states of the result NFA is the (biased) final states of the second NFA.
         ret.final_states = rhs
             .final_states
             .iter()
-            .map(|(x, br)| (x + bias, *br))
+            .map(|(x, &br)| (x + bias, br))
             .collect();
+        // Connecting edges from the first NFA to the second NFA.
         ret.transitions.extend(
             old_final_states
                 .iter()
-                .map(|(x, _)| ((*x, Transition::Epsilon), rhs.initial_state + bias)),
+                .map(|(&x, _)| ((x, Transition::Epsilon), rhs.initial_state + bias)),
         );
+        // Add biased transition edges.
         ret.transitions.extend(
             rhs.transitions
-                .iter()
-                .map(|((from, trans), to)| ((from + bias, *trans), to + bias)),
+                .iter_all()
+                .flat_map(|((from, trans), to_vec)| {
+                    to_vec
+                        .iter()
+                        .map(move |to| ((from + bias, *trans), to + bias))
+                }),
         );
         ret
     }
@@ -147,15 +145,23 @@ impl BitOr for NFA {
     fn bitor(self, rhs: NFA) -> NFA {
         let mut ret = self;
         let bias = ret.max_state_id() + 1;
+        // Final states from either NFAs are final states of the result NFA.
         ret.final_states
-            .extend(rhs.final_states.iter().map(|(x, br)| (x + bias, *br)));
+            .extend(rhs.final_states.iter().map(|(x, &br)| (x + bias, br)));
+        // Add biased transition edges.
         ret.transitions.extend(
             rhs.transitions
-                .iter()
-                .map(|((from, trans), to)| ((from + bias, *trans), to + bias)),
+                .iter_all()
+                .flat_map(|((from, trans), to_vec)| {
+                    to_vec
+                        .iter()
+                        .map(move |to| ((from + bias, *trans), to + bias))
+                }),
         );
         let old_initial = ret.initial_state;
+        // New initial state
         ret.initial_state = bias + rhs.max_state_id() + 1;
+        // Connected the new initial state to two original initial states.
         ret.transitions
             .insert((ret.initial_state, Transition::Epsilon), old_initial);
         ret.transitions.insert(
@@ -166,9 +172,15 @@ impl BitOr for NFA {
     }
 }
 
+impl Default for NFA {
+    fn default() -> Self {
+        NFA::new()
+    }
+}
+
 impl NFA {
     /// Constructs an empty NFA.
-    fn new() -> NFA {
+    pub fn new() -> NFA {
         NFA {
             initial_state: 0,
             final_states: FxHashMap::default(),
@@ -180,7 +192,7 @@ impl NFA {
     fn max_state_id(&self) -> StateId {
         self.transitions
             .iter()
-            .map(|((from, _), to)| cmp::max(*from, *to))
+            .map(|(&(from, _), &to)| cmp::max(from, to))
             .max()
             .unwrap_or(0)
     }
@@ -207,10 +219,10 @@ impl NFA {
     /// Calculates the transition set of a stateset with given input.
     fn transition_set(&self, from: &StateSet, input: u8) -> StateSet {
         let mut ret = StateSet::new();
-        for u in from {
-            if let Some(vs) = self.transitions.get_vec(&(*u, Transition::Input(input))) {
-                for v in vs {
-                    ret.append(&mut self.epsilon_closure(*v));
+        for &u in from {
+            if let Some(vs) = self.transitions.get_vec(&(u, Transition::Input(input))) {
+                for &v in vs {
+                    ret.append(&mut self.epsilon_closure(v));
                 }
             }
         }
@@ -234,7 +246,7 @@ impl NFA {
         let new_transisions: FxHashMap<(StateId, Transition), StateId> = ret
             .final_states
             .iter()
-            .map(|(x, _)| ((*x, Transition::Epsilon), ret.initial_state))
+            .map(|(&x, _)| ((x, Transition::Epsilon), ret.initial_state))
             .collect();
         ret.transitions.extend(new_transisions);
         ret.final_states.clear();
@@ -252,17 +264,22 @@ impl NFA {
     /// Makes `self` optional (0/1 times).
     pub fn optional(&self) -> NFA {
         let mut ret = self.clone();
+        let new_final = self.max_state_id() + 1;
+        ret.final_states.clear();
+        ret.final_states.insert(new_final, DEFAULT_BRANCH_NUMBER);
         ret.transitions.extend(
             self.final_states
                 .iter()
-                .map(|(x, _)| ((self.initial_state, Transition::Epsilon), *x)),
+                .map(|(&x, _)| ((x, Transition::Epsilon), new_final)),
         );
+        ret.transitions
+            .insert((self.initial_state, Transition::Epsilon), new_final);
         ret
     }
 }
 
 /// Deterministic Finite Automaton.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DFA {
     initial_state: StateId,
     final_states: FxHashMap<StateId, FxHashSet<BranchId>>,
@@ -279,34 +296,38 @@ impl From<NFA> for DFA {
         let mut next_idx = 1;
         let mut edges_out = MultiMap::new();
 
-        for (u, tr) in nfa.transitions.keys() {
+        // Record character transitions coming out of each state
+        for &(u, tr) in nfa.transitions.keys() {
             if let Transition::Input(ch) = tr {
-                edges_out.insert(*u, *ch);
+                edges_out.insert(u, ch);
             }
         }
 
+        // The new initial state
         states.insert(initial_state, 0);
         while !stack.is_empty() {
             let state_now = stack.pop().unwrap();
             let idx = states[&state_now];
-            let mut edges_out_here: FxHashSet<u8> = FxHashSet::default();
+            // Character transitions coming out from all state in the state_now
+            let mut edges_out_now: FxHashSet<u8> = FxHashSet::default();
             let mut branches = FxHashSet::default();
             for u in &state_now {
-                if let Some(br) = nfa.final_states.get(u) {
-                    branches.insert(*br);
+                if let Some(&br) = nfa.final_states.get(u) {
+                    branches.insert(br);
                 }
                 if let Some(chs) = edges_out.get_vec(u) {
-                    edges_out_here.extend(chs);
+                    edges_out_now.extend(chs);
                 }
             }
+            // Mark the new DFA state as final if it contains orginal NFA final state
             if !branches.is_empty() {
                 ret.final_states.insert(idx, branches);
             }
-            for ch in edges_out_here {
+            for ch in edges_out_now {
                 let to = nfa.transition_set(&state_now, ch);
                 match states.get(&to) {
-                    Some(to_idx) => {
-                        ret.transitions.insert((idx, ch), *to_idx);
+                    Some(&to_idx) => {
+                        ret.transitions.insert((idx, ch), to_idx);
                     }
                     None => {
                         stack.push(to.clone());
@@ -321,6 +342,12 @@ impl From<NFA> for DFA {
     }
 }
 
+impl Default for DFA {
+    fn default() -> Self {
+        DFA::new()
+    }
+}
+
 impl DFA {
     fn new() -> DFA {
         DFA {
@@ -328,5 +355,174 @@ impl DFA {
             final_states: FxHashMap::default(),
             transitions: FxHashMap::default(),
         }
+    }
+
+    fn max_state_id(&self) -> StateId {
+        self.transitions
+            .iter()
+            .map(|(&(from, _), &to)| cmp::max(from, to))
+            .max()
+            .unwrap_or(0)
+    }
+}
+
+fn vec_to_string(mut vec: Vec<u8>) -> String {
+    if vec.is_empty() {
+        return String::new();
+    }
+
+    let mut ret = String::new();
+    let mut begin: Option<u8> = None;
+    let mut last: Option<u8> = None;
+    vec.sort();
+    vec.dedup();
+    for v in vec {
+        if begin.is_none() {
+            begin = Some(v);
+        }
+        if let Some(l) = last {
+            if v > l + 1 {
+                if l == begin.unwrap() {
+                    ret.push_str(&format!("{}, ", l));
+                } else {
+                    ret.push_str(&format!("[{},{}],", begin.unwrap(), l));
+                }
+                begin = Some(v);
+            }
+        }
+        last = Some(v);
+    }
+    if last.unwrap() == begin.unwrap() {
+        ret.push_str(&format!("{}", last.unwrap()));
+    } else {
+        ret.push_str(&format!("[{},{}]", begin.unwrap(), last.unwrap()));
+    }
+    ret
+}
+
+impl Debug for NFA {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let transitions: MultiMap<StateId, (Transition, StateId)> = self
+            .transitions
+            .iter_all()
+            .flat_map(|(&(from, tr), to_vec)| to_vec.iter().map(move |&to| (from, (tr, to))))
+            .collect();
+        write!(f, "digraph NFA {{")?;
+        if f.alternate() {
+            writeln!(f)?;
+        }
+        for v in 0..=self.max_state_id() {
+            if f.alternate() {
+                write!(f, "\t")?;
+            }
+            write!(
+                f,
+                "N{0}[label=\"{0}\", shape={1}];",
+                v,
+                if self.final_states.contains_key(&v) {
+                    "doublecircle"
+                } else {
+                    "circle"
+                }
+            )?;
+            if f.alternate() {
+                writeln!(f)?;
+            }
+        }
+        for u in 0..=self.max_state_id() {
+            if transitions.contains_key(&u) {
+                let transitions_here: MultiMap<StateId, Transition> = transitions
+                    .get_vec(&u)
+                    .unwrap()
+                    .iter()
+                    .map(|&(tr, to)| (to, tr))
+                    .collect();
+                for v in transitions_here.keys() {
+                    let inputs: Vec<u8> = transitions_here
+                        .get_vec(v)
+                        .unwrap()
+                        .iter()
+                        .filter_map(|&tr| {
+                            if let Transition::Input(ch) = tr {
+                                Some(ch)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    if !inputs.is_empty() {
+                        if f.alternate() {
+                            write!(f, "\t")?;
+                        }
+                        write!(f, "N{} -> N{}[label=\"{}\"];", u, v, vec_to_string(inputs))?;
+                        if f.alternate() {
+                            writeln!(f)?;
+                        }
+                    } else {
+                        if f.alternate() {
+                            write!(f, "\t")?;
+                        }
+                        write!(f, "N{} -> N{}[label=\"ε\"];", u, v)?;
+                        if f.alternate() {
+                            writeln!(f)?;
+                        }
+                    }
+                }
+            }
+        }
+        write!(f, "}}")
+    }
+}
+
+impl Debug for DFA {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let transitions: MultiMap<StateId, (u8, StateId)> = self
+            .transitions
+            .iter()
+            .map(|(&(from, tr), &to)| (from, (tr, to)))
+            .collect();
+        write!(f, "digraph DFA {{")?;
+        if f.alternate() {
+            writeln!(f)?;
+        }
+        for v in 0..=self.max_state_id() {
+            if f.alternate() {
+                write!(f, "\t")?;
+            }
+            write!(
+                f,
+                "N{0}[label=\"{0}\", shape={1}];",
+                v,
+                if self.final_states.contains_key(&v) {
+                    "doublecircle"
+                } else {
+                    "circle"
+                }
+            )?;
+            if f.alternate() {
+                writeln!(f)?;
+            }
+        }
+        for u in 0..=self.max_state_id() {
+            if transitions.contains_key(&u) {
+                let transitions_here: MultiMap<StateId, u8> = transitions
+                    .get_vec(&u)
+                    .unwrap()
+                    .iter()
+                    .map(|&(tr, to)| (to, tr))
+                    .collect();
+                for v in transitions_here.keys() {
+                    let inputs = transitions_here.get_vec(v).unwrap().clone();
+                    if f.alternate() {
+                        write!(f, "\t")?;
+                    }
+                    write!(f, "N{} -> N{}[label=\"{}\"];", u, v, vec_to_string(inputs))?;
+                    if f.alternate() {
+                        writeln!(f)?;
+                    }
+                }
+            }
+        }
+        write!(f, "}}")
     }
 }
