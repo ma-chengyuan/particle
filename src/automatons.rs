@@ -522,13 +522,9 @@ impl Debug for NFA {
             }
         }
         for u in 0..=self.max_state_id() {
-            if transitions.contains_key(&u) {
-                let transitions_here: MultiMap<StateId, Transition> = transitions
-                    .get_vec(&u)
-                    .unwrap()
-                    .iter()
-                    .map(|&(tr, to)| (to, tr))
-                    .collect();
+            if let Some(vec) = transitions.get_vec(&u) {
+                let transitions_here: MultiMap<StateId, Transition> =
+                    vec.iter().map(|&(tr, to)| (to, tr)).collect();
                 for v in transitions_here.keys() {
                     let inputs: Vec<u8> = transitions_here
                         .get_vec(v)
@@ -596,13 +592,9 @@ impl Debug for DFA {
             }
         }
         for u in 0..=self.max_state_id() {
-            if transitions.contains_key(&u) {
-                let transitions_here: MultiMap<StateId, u8> = transitions
-                    .get_vec(&u)
-                    .unwrap()
-                    .iter()
-                    .map(|&(tr, to)| (to, tr))
-                    .collect();
+            if let Some(vec) = transitions.get_vec(&u) {
+                let transitions_here: MultiMap<StateId, u8> =
+                    vec.iter().map(|&(tr, to)| (to, tr)).collect();
                 for v in transitions_here.keys() {
                     let inputs = transitions_here.get_vec(v).unwrap().clone();
                     if f.alternate() {
