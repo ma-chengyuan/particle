@@ -6,38 +6,38 @@ extern crate rustc_hash;
 
 use criterion::Criterion;
 use particle::automatons::{DFA, NFA};
+use particle::regex;
 
-fn bench_vec_common(c: &mut Criterion) {
-    let mut data = Vec::new();
-    for _ in 0..10000 {
-        data.push(rand::random::<u64>());
-    }
-    c.bench_function("Vec Copy", |b| {
+fn bench_regex_to_nfa(c: &mut Criterion) {
+    c.bench_function("Regex To NFA", |b| {
         b.iter(|| {
-            use rustc_hash::FxHashSet;
-            let mut set = FxHashSet::default();
-            for i in &data {
-                set.insert(i);
-            }
+            let nfa = regex::compile_regex(r#"\"([^\\\"]|\\.)*\""#);
         })
     });
 }
 
-fn bench_vec_fold(c: &mut Criterion) {
-    let mut data = Vec::new();
-    for _ in 0..10000 {
-        data.push(rand::random::<u64>());
-    }
-    c.bench_function("Vec Fold", |b| {
+fn bench_nfa_to_dfa(c: &mut Criterion) {
+    let nfa = regex::compile_regex(r#"\"([^\\\"]|\\.)*\""#);
+    c.bench_function("NFA to DFA", |b| {
         b.iter(|| {
-            use rustc_hash::FxHashSet;
-            let set = data.iter().fold(FxHashSet::default(), |mut acc, x| {
-                acc.insert(x);
-                acc
-            });
-        })
+            let dfa = DFA::from(nfa.clone());
+        });
     });
 }
 
-criterion_group!(benches, bench_vec_common, bench_vec_fold);
+fn bench_dfa_minimize(c: &mut Criterion) {
+    let nfa = regex::compile_regex(r#"\"([^\\\"]|\\.)*\""#);
+    let dfa = DFA::from(nfa);
+    c.bench_function("DFA Minimize", |b| {
+        b.iter(|| {
+            let dfa_m = dfa.clone().minimize();
+        });
+    });
+}
+criterion_group!(
+    benches,
+    bench_regex_to_nfa,
+    bench_nfa_to_dfa,
+    bench_dfa_minimize
+);
 criterion_main!(benches);

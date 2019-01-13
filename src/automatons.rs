@@ -16,14 +16,14 @@ use std::ops::{BitAnd, BitOr};
 
 /// Type of transitions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Transition {
+pub enum Transition {
     Input(u8),
     Epsilon,
 }
 
 pub type StateId = usize;
 pub type BranchId = usize;
-type StateSet = BTreeSet<StateId>;
+pub type StateSet = BTreeSet<StateId>;
 // Default branch number for final states whose branch number is not explicitly specified
 const DEFAULT_BRANCH_ID: BranchId = 0;
 
@@ -34,9 +34,9 @@ const DEFAULT_BRANCH_ID: BranchId = 0;
 /// the NFA depending on its UTF-8 encoding.
 #[derive(Clone)]
 pub struct NFA {
-    initial_state: StateId,
-    final_states: FxHashMap<StateId, BranchId>,
-    transitions: MultiMap<(StateId, Transition), StateId>,
+    pub initial_state: StateId,
+    pub final_states: FxHashMap<StateId, BranchId>,
+    pub transitions: MultiMap<(StateId, Transition), StateId>,
 }
 
 impl From<&str> for NFA {
@@ -72,7 +72,7 @@ impl From<char> for NFA {
 }
 
 impl From<(char, char)> for NFA {
-    /// Constructs the NFA from a range of chars.
+    /// Constructs the NFA from a char interval.
     fn from(interval: (char, char)) -> Self {
         use utf8_ranges::Utf8Sequences;
 
@@ -219,7 +219,7 @@ impl NFA {
     }
 
     /// Calculates the transition set of a stateset with given input.
-    fn transition_set(&self, from: &StateSet, input: u8) -> StateSet {
+    pub fn transition_set(&self, from: &StateSet, input: u8) -> StateSet {
         let mut ret = StateSet::new();
         for &u in from {
             if let Some(vs) = self.transitions.get_vec(&(u, Transition::Input(input))) {
@@ -283,9 +283,9 @@ impl NFA {
 /// Deterministic Finite Automaton.
 #[derive(Clone)]
 pub struct DFA {
-    initial_state: StateId,
-    final_states: FxHashMap<StateId, FxHashSet<BranchId>>,
-    transitions: FxHashMap<(StateId, u8), BranchId>,
+    pub initial_state: StateId,
+    pub final_states: FxHashMap<StateId, FxHashSet<BranchId>>,
+    pub transitions: FxHashMap<(StateId, u8), BranchId>,
 }
 
 impl From<NFA> for DFA {
