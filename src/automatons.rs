@@ -525,10 +525,8 @@ impl Debug for NFA {
             if let Some(vec) = transitions.get_vec(&u) {
                 let transitions_here: MultiMap<StateId, Transition> =
                     vec.iter().map(|&(tr, to)| (to, tr)).collect();
-                for v in transitions_here.keys() {
-                    let inputs: Vec<u8> = transitions_here
-                        .get_vec(v)
-                        .unwrap()
+                for (v, tr) in transitions_here.iter_all() {
+                    let char_transitions: Vec<u8> = tr
                         .iter()
                         .filter_map(|&tr| {
                             if let Transition::Input(ch) = tr {
@@ -538,22 +536,22 @@ impl Debug for NFA {
                             }
                         })
                         .collect();
-                    if !inputs.is_empty() {
-                        if f.alternate() {
-                            write!(f, "\t")?;
-                        }
-                        write!(f, "N{} -> N{}[label=\"{}\"];", u, v, vec_to_string(inputs))?;
-                        if f.alternate() {
-                            writeln!(f)?;
-                        }
+                    if f.alternate() {
+                        write!(f, "\t")?;
+                    }
+                    if !char_transitions.is_empty() {
+                        write!(
+                            f,
+                            "N{} -> N{}[label=\"{}\"];",
+                            u,
+                            v,
+                            vec_to_string(char_transitions)
+                        )?;
                     } else {
-                        if f.alternate() {
-                            write!(f, "\t")?;
-                        }
                         write!(f, "N{} -> N{}[label=\"ε\"];", u, v)?;
-                        if f.alternate() {
-                            writeln!(f)?;
-                        }
+                    }
+                    if f.alternate() {
+                        writeln!(f)?;
                     }
                 }
             }
