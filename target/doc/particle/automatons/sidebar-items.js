@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["DFA","Deterministic Finite Automaton."],["NFA","Nondeterministic Finite Automaton."]]});
