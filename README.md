@@ -106,7 +106,7 @@ The DFA here is not minimized, and the number labeled on its edges are the ASCII
 
 #### Minimizing DFA
 
-Though the size of a DFA doesn't have that much impact on how fast it runs, having a minimized DFA is no bad for us. For example, the minimized DFA for the DFA above can be constructed using:
+Though the size of a DFA doesn't have that much impact on how fast it runs (since we only care about the current state), having a minimized DFA is never a bad idea since it saves memory. Particle offers DFA minimization using the standard Hopcroft algorithm. For example, the minimized DFA for the DFA above can be constructed using:
 
 ```rust
 let dfa = dfa.minimize();
