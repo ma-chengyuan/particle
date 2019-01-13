@@ -39,6 +39,7 @@ pub fn compile_regex(regex: &str) -> NFA {
 
     // Pops an operator out of the stack and do the corresponding operation on the operand
     let pop_op = |op: RegexOp| {
+        // println!("Poped {:?}", op);
         let mut stack = stack.borrow_mut();
         match op {
             RegexOp::Concat => {
@@ -69,6 +70,7 @@ pub fn compile_regex(regex: &str) -> NFA {
 
     // Pushes an operator in to the stack
     let push_op = |op: RegexOp| {
+        // println!("Pushed {:?}", op);
         let mut op_stack = op_stack.borrow_mut();
         let prec = op.precedence();
         while !op_stack.is_empty() && {
@@ -84,7 +86,7 @@ pub fn compile_regex(regex: &str) -> NFA {
     // Pushes an NFA onto the stack
     let push_nfa = |nfa: NFA| {
         if !*after_op.borrow() {
-            op_stack.borrow_mut().push(RegexOp::Concat);
+            push_op(RegexOp::Concat);
         } else {
             after_op.replace(false);
         }
@@ -100,16 +102,16 @@ pub fn compile_regex(regex: &str) -> NFA {
     let mut bracket = false;
     // Is the bracket inversed? ([^......])
     let mut bracket_inversed = false;
-    // The range endpoints in a bracket
+    // The interval endpoints in a bracket
     let mut bracket_endpoints: BTreeMap<u32, i32> = BTreeMap::new();
     // Last single char in a bracket
     let mut bracket_char: Option<u32> = None;
-    // When in bracket, are we after a '-'? (So ch closes the range)?
-    let mut bracket_close_range = false;
+    // When in bracket, are we after a '-'? (So ch closes the interval)?
+    let mut bracket_close_interval = false;
     for ch in regex.chars() {
         if !bracket {
             match ch {
-                '\\' => escape = true,
+                '\\' if !escape => escape = true,
                 '[' if !escape => bracket = true,
                 '(' if !escape => {
                     if !*after_op.borrow() {
@@ -151,6 +153,9 @@ pub fn compile_regex(regex: &str) -> NFA {
                     }
                     op_stack.pop().expect("() Mismatch!");
                 }
+                '.' if !escape => {
+                    push_nfa(NFA::from(('\u{0000}', '\u{ffff}')));
+                }
                 _ => {
                     push_nfa(NFA::from(ch));
                     if escape {
@@ -160,10 +165,10 @@ pub fn compile_regex(regex: &str) -> NFA {
             }
         } else {
             match ch {
-                '\\' => escape = true,
+                '\\' if !escape => escape = true,
                 '^' if !escape => bracket_inversed = true,
                 '-' if !escape => {
-                    if bracket_close_range {
+                    if bracket_close_interval {
                         panic!("Consecutive -- found in bracket regex");
                     }
                     if let Some(val) = bracket_char {
@@ -172,9 +177,13 @@ pub fn compile_regex(regex: &str) -> NFA {
                     } else {
                         panic!("Adding '-' in brackets following nothing");
                     }
-                    bracket_close_range = true;
+                    bracket_close_interval = true;
                 }
                 ']' if !escape => {
+                    if bracket_close_interval {
+                        panic!("Unclosed bracket interval (] after -)");
+                    }
+
                     let mut overlay = 0;
                     let mut begin: Option<u32> = if !bracket_inversed { None } else { Some(0) };
                     let mut nfa: Option<NFA> = None;
@@ -183,14 +192,14 @@ pub fn compile_regex(regex: &str) -> NFA {
                     for (i, j) in bracket_endpoints.iter() {
                         overlay += j;
                         last = *i;
-                        // If the bracket is inversed, character is in range if overlay == 0
-                        let in_range = (overlay > 0) ^ bracket_inversed;
-                        // Mark the beginning of a range
-                        if begin.is_none() && in_range {
+                        // If the bracket is inversed, character is in interval if overlay == 0
+                        let in_interval = (overlay > 0) ^ bracket_inversed;
+                        // Mark the beginning of a interval
+                        if begin.is_none() && in_interval {
                             begin = Some(*i);
                         }
-                        // Mark the ending of the range
-                        if begin.is_some() && !in_range {
+                        // Mark the ending of the interval
+                        if begin.is_some() && !in_interval {
                             let l = std::char::from_u32(begin.unwrap()).unwrap();
                             let r = std::char::from_u32(i - 1).unwrap();
                             let n = NFA::from((l, r));
@@ -200,7 +209,7 @@ pub fn compile_regex(regex: &str) -> NFA {
                     }
 
                     if overlay > 0 {
-                        panic!("Unbalanced ranges!");
+                        panic!("Unbalanced intervals!");
                     }
                     if bracket_inversed {
                         bracket_inversed = false;
@@ -221,8 +230,8 @@ pub fn compile_regex(regex: &str) -> NFA {
                 }
                 _ => {
                     let val = ch as u32;
-                    if bracket_close_range {
-                        bracket_close_range = false;
+                    if bracket_close_interval {
+                        bracket_close_interval = false;
                         bracket_char = None;
                     } else {
                         if let Some(x) = bracket_endpoints.get_mut(&val) {

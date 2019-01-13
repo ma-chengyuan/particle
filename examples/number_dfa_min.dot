@@ -1,0 +1,20 @@
+digraph DFA {
+        N0[label="0", shape=circle];
+        N1[label="1", shape=circle];
+        N2[label="2", shape=circle];
+        N3[label="3", shape=circle];
+        N4[label="4", shape=doublecircle];
+        N5[label="5", shape=doublecircle];
+        N6[label="6", shape=doublecircle];
+        N0 -> N6[label="[48,57]"];
+        N1 -> N2[label="43, 45"];
+        N1 -> N4[label="[49,57]"];
+        N2 -> N4[label="[49,57]"];
+        N3 -> N5[label="[49,57]"];
+        N4 -> N4[label="[48,57]"];
+        N5 -> N0[label="46"];
+        N5 -> N5[label="[48,57]"];
+        N5 -> N1[label="69, 101"];
+        N6 -> N1[label="69, 101"];
+        N6 -> N6[label="[48,57]"];
+}

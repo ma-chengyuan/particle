@@ -66,7 +66,7 @@ digraph NFA {
 }
 ```
 
-This is a DOT language script intented to be used in *GraphViz* to visualize our NFA! We can render it in graphviz to check whether it works! Since the rendered svg is too long I will not put it here!
+This is a DOT language script intented to be rendered in *Graphviz* to visualize our NFA.
 
 #### Using `compile_regex`
 
@@ -87,7 +87,7 @@ For simplicity, only a few key features of regex are supported:
    
 Advanced features like zero-width assertions and named captures are not, and **will not** be supported since that's generally an overkill for building lexers. 
 
-If you print this NFA out and observe it in GraphViz, the NFA this time should be really similar to the one that is constructed by hand, except that the id assigned for states will probably be different.
+If you print this NFA out and observe it in Graphviz, the NFA this time should be really similar to the one that is constructed by hand, except that the id assigned for states will probably be different.
 
 #### Converting NFA to DFA
 
@@ -100,9 +100,40 @@ let dfa = DFA::from(nfa);
 
 The implementation of `Debug` for `DFA` also prints the GraphViz script of the DFA. The DFA is much smaller than the original NFA so its graph can be put here:
 
-![alt text](examples/number_dfa.svg)
+![](examples/number_dfa.svg)
 
 The DFA here is not minimized, and the number labeled on its edges are the ASCII of characters. Both NFAs and DFAs here work on `u8`, and unicode characters will be encoded at most 4 UTF-8 `u8` input in both automatons.
+
+#### Minimizing DFA
+
+Though the size of a DFA doesn't have that much impact on how fast it runs, having a minimized DFA is no bad for us. For example, the minimized DFA for the DFA above can be constructed using:
+
+```rust
+let dfa = dfa.minimize();
+```
+
+which is:
+
+![](examples/number_dfa_min.svg)
+
+This is especially useful when dealing with complex DFAs. For instance, consider the regex matching strings:
+
+```rust
+let nfa = regex::compile_regex(r#"\"([^\\\"]|\\.)*\""#);
+```
+
+Due to the nature of UTF-8 encoding, this produces an already complicated NFA:
+
+![](examples/string_nfa.svg)
+
+If we convert this to DFA using powerset construction, the result will even frustrate Graphviz:
+
+![](examples/string_dfa_large.svg)
+
+But after minimizing it, things become much clearer:
+
+![](examples/string_dfa_min.svg)
+
 
 ## TODO List
 1. Wrapping DFA into lexer

@@ -6,13 +6,13 @@ extern crate multimap;
 extern crate rustc_hash;
 extern crate utf8_ranges;
 
+use indexmap::IndexSet;
 use multimap::MultiMap;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::cmp;
 use std::collections::BTreeSet;
 use std::fmt::*;
 use std::ops::{BitAnd, BitOr};
-use utf8_ranges::Utf8Sequences;
 
 /// Type of transitions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -25,7 +25,7 @@ pub type StateId = usize;
 pub type BranchId = usize;
 type StateSet = BTreeSet<StateId>;
 // Default branch number for final states whose branch number is not explicitly specified
-const DEFAULT_BRANCH_NUMBER: BranchId = 0;
+const DEFAULT_BRANCH_ID: BranchId = 0;
 
 /// Nondeterministic Finite Automaton.
 ///
@@ -49,7 +49,7 @@ impl From<&str> for NFA {
                 .insert((last, Transition::Input(*b)), last + 1);
             last += 1;
         }
-        ret.final_states.insert(last, DEFAULT_BRANCH_NUMBER);
+        ret.final_states.insert(last, DEFAULT_BRANCH_ID);
         ret
     }
 }
@@ -66,7 +66,7 @@ impl From<char> for NFA {
                 .insert((last, Transition::Input(b)), last + 1);
             last += 1;
         }
-        ret.final_states.insert(last, DEFAULT_BRANCH_NUMBER);
+        ret.final_states.insert(last, DEFAULT_BRANCH_ID);
         ret
     }
 }
@@ -74,6 +74,8 @@ impl From<char> for NFA {
 impl From<(char, char)> for NFA {
     /// Constructs the NFA from a range of chars.
     fn from(interval: (char, char)) -> Self {
+        use utf8_ranges::Utf8Sequences;
+
         let mut ret = NFA::new();
         let mut next_id = 1;
         for seq in Utf8Sequences::new(interval.0, interval.1) {
@@ -86,7 +88,7 @@ impl From<(char, char)> for NFA {
                 last = next_id;
                 next_id += 1;
             }
-            ret.final_states.insert(last, DEFAULT_BRANCH_NUMBER);
+            ret.final_states.insert(last, DEFAULT_BRANCH_ID);
         }
         ret
     }
@@ -98,7 +100,7 @@ impl From<DFA> for NFA {
         let mut ret = NFA::new();
         ret.initial_state = dfa.initial_state;
         ret.final_states
-            .extend(dfa.final_states.keys().map(|&x| (x, DEFAULT_BRANCH_NUMBER)));
+            .extend(dfa.final_states.keys().map(|&x| (x, DEFAULT_BRANCH_ID)));
         ret.transitions.extend(
             dfa.transitions
                 .iter()
@@ -251,7 +253,7 @@ impl NFA {
         ret.transitions.extend(new_transisions);
         ret.final_states.clear();
         ret.final_states
-            .insert(ret.initial_state, DEFAULT_BRANCH_NUMBER);
+            .insert(ret.initial_state, DEFAULT_BRANCH_ID);
         ret
     }
 
@@ -266,7 +268,7 @@ impl NFA {
         let mut ret = self.clone();
         let new_final = self.max_state_id() + 1;
         ret.final_states.clear();
-        ret.final_states.insert(new_final, DEFAULT_BRANCH_NUMBER);
+        ret.final_states.insert(new_final, DEFAULT_BRANCH_ID);
         ret.transitions.extend(
             self.final_states
                 .iter()
@@ -281,9 +283,9 @@ impl NFA {
 /// Deterministic Finite Automaton.
 #[derive(Clone)]
 pub struct DFA {
-    initial_state: StateId,
-    final_states: FxHashMap<StateId, FxHashSet<BranchId>>,
-    transitions: FxHashMap<(StateId, u8), BranchId>,
+    pub initial_state: StateId,
+    pub final_states: FxHashMap<StateId, FxHashSet<BranchId>>,
+    pub transitions: FxHashMap<(StateId, u8), BranchId>,
 }
 
 impl From<NFA> for DFA {
@@ -364,13 +366,102 @@ impl DFA {
             .max()
             .unwrap_or(0)
     }
+
+    pub fn minimize(self) -> DFA {
+        let reachable_from: MultiMap<StateId, (u8, StateId)> = self
+            .transitions
+            .iter()
+            .map(|(&(from, tr), &to)| (to, (tr, from)))
+            .collect();
+        let all_states: StateSet = (0..=self.max_state_id()).collect();
+        let mut partitions: IndexSet<StateSet> = IndexSet::new();
+        let mut distinguishers: IndexSet<StateSet> = IndexSet::new();
+        let final_states: StateSet = all_states
+            .iter()
+            .filter(|x| self.final_states.contains_key(x))
+            .cloned()
+            .collect();
+        partitions.insert(final_states.clone());
+        partitions.insert(all_states.difference(&final_states).cloned().collect());
+        distinguishers.insert(all_states.difference(&final_states).cloned().collect());
+        distinguishers.insert(final_states);
+
+        while !distinguishers.is_empty() {
+            let a = distinguishers.pop().unwrap();
+            let c: MultiMap<u8, StateId> = a
+                .iter()
+                .filter_map(|x| reachable_from.get_vec(x).map(|vec| vec.iter().cloned()))
+                .flatten()
+                .collect();
+            for (_, x) in c.iter_all() {
+                let x: StateSet = x.iter().cloned().collect();
+                let mut new_partitions: IndexSet<StateSet> = IndexSet::new();
+                while !partitions.is_empty() {
+                    let y = partitions.pop().unwrap();
+                    let intersection: StateSet = y.intersection(&x).cloned().collect();
+                    let difference: StateSet = y.difference(&x).cloned().collect();
+                    if !intersection.is_empty() && !difference.is_empty() {
+                        // println!("Found: {:?} {:?} {:?}", y, intersection, difference);
+                        if distinguishers.contains(&y) {
+                            distinguishers.remove(&y);
+                            distinguishers.insert(intersection.clone());
+                            distinguishers.insert(difference.clone());
+                        } else {
+                            distinguishers.insert(if intersection.len() <= difference.len() {
+                                intersection.clone()
+                            } else {
+                                difference.clone()
+                            });
+                        }
+                        new_partitions.insert(intersection);
+                        new_partitions.insert(difference);
+                    } else {
+                        new_partitions.insert(y);
+                    }
+                }
+                partitions = new_partitions;
+            }
+        }
+        let labeled: FxHashMap<StateSet, StateId> = partitions.iter().cloned().zip(0..).collect();
+        let map: FxHashMap<StateId, StateId> = partitions
+            .iter()
+            .flat_map(|p| {
+                let id = labeled[p];
+                p.iter().map(move |&x| (x, id))
+            })
+            .collect();
+        DFA {
+            initial_state: map[&self.initial_state],
+            final_states: partitions
+                .iter()
+                .filter_map(|p| {
+                    let union: FxHashSet<BranchId> = p
+                        .iter()
+                        .filter_map(|x| self.final_states.get(x).map(|s| s.iter().cloned()))
+                        .flatten()
+                        .collect();
+                    if union.is_empty() {
+                        None
+                    } else {
+                        Some((labeled[p], union))
+                    }
+                })
+                .collect(),
+            transitions: self
+                .transitions
+                .iter()
+                .map(|((from, tr), to)| ((map[from], *tr), map[to]))
+                .collect(),
+        }
+    }
 }
 
+/// Minimizes a vector of `u8` ot its string description
+/// For example, [1, 2, 3, 4, 5, 9, 11, 12, 13] -> "[1-5], 9, [11,13]"
 fn vec_to_string(mut vec: Vec<u8>) -> String {
     if vec.is_empty() {
         return String::new();
     }
-
     let mut ret = String::new();
     let mut begin: Option<u8> = None;
     let mut last: Option<u8> = None;
@@ -382,6 +473,7 @@ fn vec_to_string(mut vec: Vec<u8>) -> String {
         }
         if let Some(l) = last {
             if v > l + 1 {
+                // If we have last then we definitely have begin, unwrap safely
                 if l == begin.unwrap() {
                     ret.push_str(&format!("{}, ", l));
                 } else {
