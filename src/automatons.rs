@@ -283,9 +283,9 @@ impl NFA {
 /// Deterministic Finite Automaton.
 #[derive(Clone)]
 pub struct DFA {
-    pub initial_state: StateId,
-    pub final_states: FxHashMap<StateId, FxHashSet<BranchId>>,
-    pub transitions: FxHashMap<(StateId, u8), BranchId>,
+    initial_state: StateId,
+    final_states: FxHashMap<StateId, FxHashSet<BranchId>>,
+    transitions: FxHashMap<(StateId, u8), BranchId>,
 }
 
 impl From<NFA> for DFA {

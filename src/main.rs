@@ -11,5 +11,4 @@ fn main() {
     println!("{:#?}", dfa);
     let dfa = dfa.minimize();
     println!("{:#?}", dfa);
-    println!("{}", dfa.initial_state);
 }

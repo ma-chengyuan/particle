@@ -135,10 +135,11 @@ But after minimizing it, things become much clearer:
 ![](examples/string_dfa_min.svg)
 
 
+
 ## TODO List
-1. Wrapping DFA into lexer
+1. Wrapping DFA into Lexer
 2. ~~Better interface to contruct NFA~~
 3. Optimizing DFA performance
-4. Char class in NFA implementation
+4. ~~Char class in NFA implementation(Too Lazy)~~
 5. LL Parser gen
-6. DFA Minimization
+6. ~~DFA Minimization~~
