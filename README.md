@@ -17,128 +17,95 @@ Particle aims to be the hybrid of two forms listed above, to be exact, it is des
    
 ## Currently implemented Features
 
-### NFA and DFA and Regex
+1. Parse from simple regular expressions (no captures) to NFAs.
+2. Subset construction algorithm to convert NFAs to DFAs.
+3. Hopcroft algorithm for NFA minimization.
+4. Lexer construction
 
-In the example below, we will try to construct an NFA that recognizes number literals, namely, that can be accepted by the regex:
+## Example
 
-```
-[1-9][0-9]*(\.[0-9]+)?([eE](\+|-)?[1-9][0-9]*)?
-```
-
-#### Construction By Hand 
-
-Particle offers really low-level interfaces that help you construct an NFA from ground-up:
+This annotated example shows a simple lexer parsing expression:
 
 ```rust
-use particle::automatons::NFA;
-// Character close intervals are constructed by calling NFA::from(char tuple)
-// & and | are overloaded for simplicity
-// The integer part [1-9][0-9]*
-let int_part = NFA::from(('1', '9')) & NFA::from(('0', '9')).zero_or_more();
-// The float part \.[0-9]+
-let float_part = NFA::from('.') & NFA::from(('0', '9')).one_or_more();
-// Exponents [eE](\+|-)?[1-9][0-9]*
-let exp_part = (NFA::from('e') | NFA::from('E'))
-        & (NFA::from('+') | NFA::from('-')).optional()
-        & NFA::from(('1', '9'))
-        & (NFA::from(('0', '9')).zero_or_more());
-// Putting them together!
-let nfa = int_part & float_part.optional() & exp_part.optional();    
-```
+use particle::define_lexer;
+use particle::lexer::LexerState;
+use particle::span::Span;
 
-That's really a large amount of work! We see `NFA::from()` everywhere! Notice that though we can somehow reuse `int_part` in the definition of `exp_part`, this will move `int_part` and we will not be able to use it anymore.
+/// Four kinds of tokens
+#[derive(Debug)]
+enum TokenKind {
+    Punctuation(String),
+    Integer(i32),
+    Float(f64),
+    Identifier(String),
+}
 
-How can we be sure that the nfa we construct is right? `NFA` has implemented the Debug Trait, see:
+/// A Token object with locational information (span)
+#[derive(Debug)]
+struct Token {
+    span: Span,
+    kind: TokenKind,
+}
 
-```rust
-println!("{:#?}", nfa);
-```
-And this is what we get:
+fn main() {
+    // Define our lexer
+    let lexer = define_lexer!(Token = // `Token` denotes the type of token this lexer is going to return
+        // Discard white spaces
+        discard "[ \n\r\t]+", 
+        // Integers
+        // The expression after => is a function that takes the token string as well as the span 
+        // and returns the result (of type specified above, or Token in this case).
+        "[1-9][0-9]*"                                   => |str, span| Token { span, 
+            kind: TokenKind::Integer(str.parse().unwrap()),
+        },
+        // Floats with exponents
+        // Have you noticed that the regex above also matches integers, which may lead to ambiguity?
+        // Such ambiguity is solved by preferring rules that are defined first
+        // So you should somehow put identifier rules at last...
+        "[1-9][0-9]*(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?"   => |str, span| Token { span, 
+            kind: TokenKind::Float(str.parse().unwrap()),
+        },
+        // Punctuations
+        "\\+|-|\\*|/|\\(|\\)"                           => |str, span| Token { span,
+            kind: TokenKind::Punctuation(String::from(str)),
+        },
+        // Identifiers
+        "[a-zA-Z][_a-zA-Z0-9]*"                         => |str, span| Token { span,
+            kind: TokenKind::Identifier(String::from(str)),
+        }
+    );
+    // Notice that when writing regular expressions down we did not use raw string literals, which is a common
+    // practice, this is because I am simply too lazy to handle all types of escape characters -- just use that 
+    // of rust! Then the only thing you may feel uncomfortable is writing //s!
 
-```
-digraph NFA {
-        N0[label="0", shape=circle];
-        N1[label="1", shape=circle];
-        ...
-        N24 -> N25[label="[48,57]"];
-        N24 -> N26[label="ε"];
-        N25 -> N24[label="ε"];
+    // We use a lexer state to store the context information
+    // A LexerState can be constructed from any char iterators, the simplest being calling .chars() of a string
+    let mut state = LexerState::from(
+        "(412 + 321.654) / 768.432 * 34e-1 - sin(30)".chars()
+    );
+    // Proceed until EOF
+    while !state.eof() {
+        match lexer.next_token(&mut state) {
+            Ok(token) => eprintln!("{:?}", token),
+            Err(msg) => {
+                eprintln!("Error at {:?}: {}", state.location, msg);
+                break;
+            }
+        }
+    }
 }
 ```
+As you may see particle is different from other lexer gens in that it is not that "battery included"...
+You still need to define your own token types, and write functions that do conversions.
+But it offers great flexibility -- the lexer is only responsible for identifying where the token is,
+its up to you to decide how to deal with them.
 
-This is a DOT language script intented to be rendered in *Graphviz* to visualize our NFA.
-
-#### Using `compile_regex`
-
-As shown above, it takes lots of code to construct the NFA by hand. Luckily, Particle also offers a function `compile_regex` to help us:
-
-```rust
-let nfa = particle::regex::compile_regex(r#"[1-9][0-9]*(\.[0-9]+)?([eE](\+|-)?[1-9][0-9]*)?"#);
-```
-
-As you can see, that does everything for you. 
-For simplicity, only a few key features of regex are supported:
-1. Grouping `()`
-2. Bracket `[...]` and `[^...]`
-3. Branching `()`
-4. Repetition `+` and `-` (`{m, n}` are not supported)
-5. Optional `?`
-6. Escape characters
-   
-Advanced features like zero-width assertions and named captures are not, and **will not** be supported since that's generally an overkill for building lexers. 
-
-If you print this NFA out and observe it in Graphviz, the NFA this time should be really similar to the one that is constructed by hand, except that the id assigned for states will probably be different.
-
-#### Converting NFA to DFA
-
-This step is really easy since the function `DFA::from()` does everything for you:
-
-```rust
-use particle::automatons::DFA;
-let dfa = DFA::from(nfa);
-```
-
-The implementation of `Debug` for `DFA` also prints the GraphViz script of the DFA. The DFA is much smaller than the original NFA so its graph can be put here:
-
-![](examples/number_dfa.svg)
-
-The DFA here is not minimized, and the number labeled on its edges are the ASCII of characters. Both NFAs and DFAs here work on `u8`, and unicode characters will be encoded at most 4 UTF-8 `u8` input in both automatons.
-
-#### Minimizing DFA
-
-Though the size of a DFA doesn't have that much impact on how fast it runs (since we only care about the current state), having a minimized DFA is never a bad idea since it saves memory. Particle offers DFA minimization using the standard Hopcroft algorithm. For example, the minimized DFA for the DFA above can be constructed using:
-
-```rust
-let dfa = dfa.minimize();
-```
-
-which is:
-
-![](examples/number_dfa_min.svg)
-
-This is especially useful when dealing with complex DFAs. For instance, consider the regex matching strings:
-
-```rust
-let nfa = regex::compile_regex(r#"\"([^\\\"]|\\.)*\""#);
-```
-
-Due to the nature of UTF-8 encoding, this produces an already complicated NFA:
-
-![](examples/string_nfa.svg)
-
-If we convert this to DFA using powerset construction, the result will even frustrate Graphviz:
-
-![](examples/string_dfa_large.svg)
-
-But after minimizing it, things become much clearer:
-
-![](examples/string_dfa_min.svg)
-
-
+The `define_lexer` macro is still implemented in a somehow dumb way, and you can see some boilerplate code
+in after => s, this should be improved after rust allows partial hygiene bending in macros... 
 
 ## TODO List
-1. Wrapping DFA into Lexer
-2. ~~Better interface to contruct NFA~~
+1. ~~Wrapping DFA into Lexer~~
+2. ~~Better interface to construct NFA~~
 3. Optimizing DFA performance
 4. ~~Char class in NFA implementation(Too Lazy)~~
 5. LL Parser gen

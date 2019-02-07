@@ -4,6 +4,7 @@
 
 # Personal VSCode configs
 /.vscode/
+/.idea/
 
 /.criterion/
 

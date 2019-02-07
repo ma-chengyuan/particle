@@ -2,17 +2,14 @@
 //!
 //! DFAs and NFAs.
 
-extern crate multimap;
-extern crate rustc_hash;
-extern crate utf8_ranges;
-
-use indexmap::IndexSet;
-use multimap::MultiMap;
-use rustc_hash::{FxHashMap, FxHashSet};
 use std::cmp;
 use std::collections::BTreeSet;
 use std::fmt::*;
 use std::ops::{BitAnd, BitOr};
+
+use indexmap::IndexSet;
+use multimap::MultiMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 /// Type of transitions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -24,10 +21,11 @@ pub enum Transition {
 pub type StateId = usize;
 pub type BranchId = usize;
 pub type StateSet = BTreeSet<StateId>;
+
 // Default branch number for final states whose branch number is not explicitly specified
 const DEFAULT_BRANCH_ID: BranchId = 0;
 
-/// Nondeterministic Finite Automaton.
+/// Non-deterministic Finite Automaton.
 ///
 /// The inside implementation of the automaton is based on `u8`,
 /// therefore a character transition may be represented as **multiple edges** in
@@ -95,7 +93,7 @@ impl From<(char, char)> for NFA {
 }
 
 impl From<DFA> for NFA {
-    /// Converts a DFA back to NFA, all branch informations WILL BE LOST.
+    /// Converts a DFA back to NFA, all branch information WILL BE LOST.
     fn from(dfa: DFA) -> Self {
         let mut ret = NFA::new();
         ret.initial_state = dfa.initial_state;
@@ -112,6 +110,7 @@ impl From<DFA> for NFA {
 
 impl BitAnd for NFA {
     type Output = NFA;
+    //noinspection RsBorrowChecker
     fn bitand(self, rhs: NFA) -> NFA {
         let mut ret = self;
         let bias = ret.max_state_id() + 1;
@@ -138,6 +137,8 @@ impl BitAnd for NFA {
                         .map(move |to| ((from + bias, *trans), to + bias))
                 }),
         );
+        // Wow IntelliJ Rust is giving me an error on this
+        // Certainly a bug since this passes compilation
         ret
     }
 }
@@ -182,7 +183,7 @@ impl Default for NFA {
 
 impl NFA {
     /// Constructs an empty NFA.
-    pub fn new() -> NFA {
+    pub fn new() -> Self {
         NFA {
             initial_state: 0,
             final_states: FxHashMap::default(),
@@ -245,12 +246,12 @@ impl NFA {
     /// Repeats `self` by >=0 times (`*` in regex).
     pub fn zero_or_more(self) -> NFA {
         let mut ret = self;
-        let new_transisions: FxHashMap<(StateId, Transition), StateId> = ret
+        let new_transitions: FxHashMap<(StateId, Transition), StateId> = ret
             .final_states
             .iter()
             .map(|(&x, _)| ((x, Transition::Epsilon), ret.initial_state))
             .collect();
-        ret.transitions.extend(new_transisions);
+        ret.transitions.extend(new_transitions);
         ret.final_states.clear();
         ret.final_states
             .insert(ret.initial_state, DEFAULT_BRANCH_ID);
@@ -285,7 +286,7 @@ impl NFA {
 pub struct DFA {
     pub initial_state: StateId,
     pub final_states: FxHashMap<StateId, FxHashSet<BranchId>>,
-    pub transitions: FxHashMap<(StateId, u8), BranchId>,
+    pub transitions: FxHashMap<(StateId, u8), StateId>,
 }
 
 impl From<NFA> for DFA {

@@ -1,14 +1,48 @@
-pub mod automatons;
-pub mod lexer;
-pub mod regex;
+use particle::define_lexer;
+use particle::lexer::LexerState;
+use particle::span::Span;
 
-use crate::automatons::{DFA, NFA};
+#[derive(Debug)]
+enum TokenKind {
+    Punctuation(String),
+    Integer(i32),
+    Float(f64),
+    Identifier(String),
+}
+
+#[derive(Debug)]
+struct Token {
+    span: Span,
+    kind: TokenKind,
+}
 
 fn main() {
-    let nfa = regex::compile_regex(r#"\"([^\\\"]|\\.)*\""#);
-    println!("{:#?}", nfa);
-    let dfa = DFA::from(nfa);
-    println!("{:#?}", dfa);
-    let dfa = dfa.minimize();
-    println!("{:#?}", dfa);
+    let lexer = define_lexer!(Token =
+        discard "[ \n\r\t]",
+        "[1-9][0-9]*"                                   => |str, span| Token { span,
+            kind: TokenKind::Integer(str.parse().unwrap()),
+        },
+        "[1-9][0-9]*(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?"   => |str, span| Token { span,
+            kind: TokenKind::Float(str.parse().unwrap()),
+        },
+        "\\+|-|\\*|/|\\(|\\)"                           => |str, span| Token { span,
+            kind: TokenKind::Punctuation(String::from(str)),
+        },
+        "[a-zA-Z][_a-zA-Z0-9]*"                         => |str, span| Token { span,
+            kind: TokenKind::Identifier(String::from(str)),
+        }
+    );
+
+    let mut state = LexerState::from(
+        "(412 + 321.654) / 768.432 * 34e-1 - sin(30)".chars()
+    );
+    while !state.eof() {
+        match lexer.next_token(&mut state) {
+            Ok(token) => eprintln!("{:?}", token),
+            Err(msg) => {
+                eprintln!("Error at {:?}: {}", state.location, msg);
+                break;
+            }
+        }
+    }
 }

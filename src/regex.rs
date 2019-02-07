@@ -1,14 +1,19 @@
-use crate::automatons::{DFA, NFA};
+//! Simple regex parsing
+
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
+use crate::automatons::NFA;
+
 /// Compile a regex into NFA, using only one function
+///
 /// The regex now supports Grouping (), Brackets [], Branch | and Repetition (* and +)
-/// It is really smart of Clippy to notice that the function is TOO LONG
-/// But this is just how I'd like it to be, so NO PROBLEM
 #[allow(clippy::cyclomatic_complexity)]
-pub fn compile_regex(regex: &str) -> NFA {
+pub fn compile_regex(regex: &str) -> Result<NFA, &'static str> {
+    // We use a simple two stack approach
+    // This stack stores parts of regex
     let stack: RefCell<Vec<NFA>> = RefCell::new(Vec::new());
+    // This stack stores regex operators like concat / repetitions etc
     let op_stack: RefCell<Vec<RegexOp>> = RefCell::new(Vec::new());
     // Are we just after an operator like ( or | (So we don't need to push extra concat operator?)
     let after_op = RefCell::new(true);
@@ -24,6 +29,7 @@ pub fn compile_regex(regex: &str) -> NFA {
         Group,
     }
 
+    // Operator precedence
     impl RegexOp {
         fn precedence(&self) -> usize {
             match self {
@@ -39,7 +45,7 @@ pub fn compile_regex(regex: &str) -> NFA {
 
     // Pops an operator out of the stack and do the corresponding operation on the operand
     let pop_op = |op: RegexOp| {
-        // println!("Poped {:?}", op);
+        // println!("Popped {:?}", op);
         let mut stack = stack.borrow_mut();
         match op {
             RegexOp::Concat => {
@@ -100,19 +106,21 @@ pub fn compile_regex(regex: &str) -> NFA {
     let mut escape = false;
     // Are we in the bracket?
     let mut bracket = false;
-    // Is the bracket inversed? ([^......])
-    let mut bracket_inversed = false;
+    // Is the bracket inverted? ([^......])
+    let mut bracket_inverted = false;
     // The interval endpoints in a bracket
     let mut bracket_endpoints: BTreeMap<u32, i32> = BTreeMap::new();
     // Last single char in a bracket
     let mut bracket_char: Option<u32> = None;
     // When in bracket, are we after a '-'? (So ch closes the interval)?
-    let mut bracket_close_interval = false;
+    let mut bracket_after_hyphen = false;
     for ch in regex.chars() {
         if !bracket {
             match ch {
                 '\\' if !escape => escape = true,
+                // Bracket mode
                 '[' if !escape => bracket = true,
+                // Parenthesis
                 '(' if !escape => {
                     if !*after_op.borrow() {
                         push_op(RegexOp::Concat);
@@ -122,26 +130,26 @@ pub fn compile_regex(regex: &str) -> NFA {
                 }
                 '|' if !escape => {
                     if *after_op.borrow() {
-                        panic!("Please put something between two |s");
+                        return Err("Consecutive |s: empty branch?");
                     }
                     push_op(RegexOp::Branch);
                     after_op.replace(true);
                 }
                 '*' if !escape => {
                     if *after_op.borrow() {
-                        panic!("Please put something between | and *");
+                        return Err("| followed immediately by *: repeat nothing?");
                     }
                     push_op(RegexOp::ZeroOrMore);
                 }
                 '+' if !escape => {
                     if *after_op.borrow() {
-                        panic!("Please put something between | and +");
+                        return Err("| followed immediately by +: repeat nothing?");
                     }
                     push_op(RegexOp::OneOrMore);
                 }
                 '?' if !escape => {
                     if *after_op.borrow() {
-                        panic!("Please put something between | and ?");
+                        return Err("| followed immediately by +: making nothing optional?");
                     }
                     push_op(RegexOp::Optional);
                 }
@@ -166,34 +174,34 @@ pub fn compile_regex(regex: &str) -> NFA {
         } else {
             match ch {
                 '\\' if !escape => escape = true,
-                '^' if !escape => bracket_inversed = true,
+                '^' if !escape => bracket_inverted = true,
                 '-' if !escape => {
-                    if bracket_close_interval {
-                        panic!("Consecutive -- found in bracket regex");
+                    if bracket_after_hyphen {
+                        return Err("Consecutive - found in brackets");
                     }
                     if let Some(val) = bracket_char {
                         let endpoint = bracket_endpoints.get_mut(&(val + 1)).unwrap();
                         *endpoint += 1;
                     } else {
-                        panic!("Adding '-' in brackets following nothing");
+                        return Err("Adding '-' in brackets following nothing");
                     }
-                    bracket_close_interval = true;
+                    bracket_after_hyphen = true;
                 }
                 ']' if !escape => {
-                    if bracket_close_interval {
-                        panic!("Unclosed bracket interval (] after -)");
+                    if bracket_after_hyphen {
+                        return Err("Unclosed bracket interval (] after -)");
                     }
 
                     let mut overlay = 0;
-                    let mut begin: Option<u32> = if !bracket_inversed { None } else { Some(0) };
+                    let mut begin: Option<u32> = if !bracket_inverted { None } else { Some(0) };
                     let mut nfa: Option<NFA> = None;
                     let mut last = 0;
 
                     for (i, j) in bracket_endpoints.iter() {
                         overlay += j;
                         last = *i;
-                        // If the bracket is inversed, character is in interval if overlay == 0
-                        let in_interval = (overlay > 0) ^ bracket_inversed;
+                        // If the bracket is inverted, character is in interval if overlay == 0
+                        let in_interval = (overlay > 0) ^ bracket_inverted;
                         // Mark the beginning of a interval
                         if begin.is_none() && in_interval {
                             begin = Some(*i);
@@ -209,10 +217,10 @@ pub fn compile_regex(regex: &str) -> NFA {
                     }
 
                     if overlay > 0 {
-                        panic!("Unbalanced intervals!");
+                        return Err("Unbalanced intervals!");
                     }
-                    if bracket_inversed {
-                        bracket_inversed = false;
+                    if bracket_inverted {
+                        bracket_inverted = false;
                         // Don't forget to push [last, 0xffff]
                         let l = std::char::from_u32(last).unwrap();
                         let r = std::char::from_u32(0xffff).unwrap();
@@ -222,7 +230,7 @@ pub fn compile_regex(regex: &str) -> NFA {
                     if let Some(n) = nfa {
                         push_nfa(n);
                     } else {
-                        panic!("NFA not constructed for bracket!");
+                        return Err("NFA not constructed for bracket!");
                     }
                     bracket_endpoints.clear();
                     bracket_char = None;
@@ -230,8 +238,8 @@ pub fn compile_regex(regex: &str) -> NFA {
                 }
                 _ => {
                     let val = ch as u32;
-                    if bracket_close_interval {
-                        bracket_close_interval = false;
+                    if bracket_after_hyphen {
+                        bracket_after_hyphen = false;
                         bracket_char = None;
                     } else {
                         if let Some(x) = bracket_endpoints.get_mut(&val) {
@@ -259,5 +267,5 @@ pub fn compile_regex(regex: &str) -> NFA {
         pop_op(o);
     }
     let mut stack = stack.borrow_mut();
-    stack.pop().expect("Regex contains nothing")
+    stack.pop().ok_or("Empty regex.")
 }
