@@ -19,17 +19,17 @@ struct Token {
 fn main() {
     let lexer = define_lexer!(Token =
         discard "[ \n\r\t]",
-        "[1-9][0-9]*"                                   => |str, span| Token { span,
-            kind: TokenKind::Integer(str.parse().unwrap()),
+        "[1-9][0-9]*"                                   => |s, span| Token { span,
+            kind: TokenKind::Integer(s.parse().unwrap()),
         },
-        "[1-9][0-9]*(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?"   => |str, span| Token { span,
-            kind: TokenKind::Float(str.parse().unwrap()),
+        "[1-9][0-9]*(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?"   => |s, span| Token { span,
+            kind: TokenKind::Float(s.parse().unwrap()),
         },
-        "\\+|-|\\*|/|\\(|\\)"                           => |str, span| Token { span,
-            kind: TokenKind::Punctuation(String::from(str)),
+        "\\+|-|\\*|/|\\(|\\)"                           => |s, span| Token { span,
+            kind: TokenKind::Punctuation(String::from(s)),
         },
-        "[a-zA-Z][_a-zA-Z0-9]*"                         => |str, span| Token { span,
-            kind: TokenKind::Identifier(String::from(str)),
+        "[a-zA-Z][_a-zA-Z0-9]*"                         => |s, span| Token { span,
+            kind: TokenKind::Identifier(String::from(s)),
         }
     );
 

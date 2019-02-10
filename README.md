@@ -55,23 +55,23 @@ fn main() {
         // Integers
         // The expression after => is a function that takes the token string as well as the span 
         // and returns the result (of type specified above, or Token in this case).
-        "[1-9][0-9]*"                                   => |str, span| Token { span, 
-            kind: TokenKind::Integer(str.parse().unwrap()),
+        "[1-9][0-9]*"                                   => |s, span| Token { span, 
+            kind: TokenKind::Integer(s.parse().unwrap()),
         },
         // Floats with exponents
         // Have you noticed that the regex above also matches integers, which may lead to ambiguity?
         // Such ambiguity is solved by preferring rules that are defined first
         // So you should somehow put identifier rules at last...
-        "[1-9][0-9]*(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?"   => |str, span| Token { span, 
-            kind: TokenKind::Float(str.parse().unwrap()),
+        "[1-9][0-9]*(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?"   => |s, span| Token { span, 
+            kind: TokenKind::Float(s.parse().unwrap()),
         },
         // Punctuations
-        "\\+|-|\\*|/|\\(|\\)"                           => |str, span| Token { span,
-            kind: TokenKind::Punctuation(String::from(str)),
+        "\\+|-|\\*|/|\\(|\\)"                           => |s, span| Token { span,
+            kind: TokenKind::Punctuation(String::from(s)),
         },
         // Identifiers
-        "[a-zA-Z][_a-zA-Z0-9]*"                         => |str, span| Token { span,
-            kind: TokenKind::Identifier(String::from(str)),
+        "[a-zA-Z][_a-zA-Z0-9]*"                         => |s, span| Token { span,
+            kind: TokenKind::Identifier(String::from(s)),
         }
     );
     // Notice that when writing regular expressions down we did not use raw string literals, which is a common
@@ -95,6 +95,34 @@ fn main() {
     }
 }
 ```
+
+Running this example yields:
+```
+Token { span: Span { from: Location { line: 1, col: 0 }, to: Location { line: 1, col: 0 } }, kind: Punctuation("(") }
+Token { span: Span { from: Location { line: 1, col: 1 }, to: Location { line: 1, col: 3 } }, kind: Integer(412) }
+Token { span: Span { from: Location { line: 1, col: 5 }, to: Location { line: 1, col: 5 } }, kind: Punctuation("+") }
+Token { span: Span { from: Location { line: 1, col: 7 }, to: Location { line: 1, col: 13 } }, kind: Float(321.654) }
+Token { span: Span { from: Location { line: 1, col: 14 }, to: Location { line: 1, col: 14 } }, kind: Punctuation(")") }
+Token { span: Span { from: Location { line: 1, col: 16 }, to: Location { line: 1, col: 16 } }, kind: Punctuation("/") }
+Token { span: Span { from: Location { line: 1, col: 18 }, to: Location { line: 1, col: 24 } }, kind: Float(768.432) }
+Token { span: Span { from: Location { line: 1, col: 26 }, to: Location { line: 1, col: 26 } }, kind: Punctuation("*") }
+Token { span: Span { from: Location { line: 1, col: 28 }, to: Location { line: 1, col: 32 } }, kind: Float(3.4) }
+Token { span: Span { from: Location { line: 1, col: 34 }, to: Location { line: 1, col: 34 } }, kind: Punctuation("-") }
+Token { span: Span { from: Location { line: 1, col: 36 }, to: Location { line: 1, col: 38 } }, kind: Identifier("sin") }
+Token { span: Span { from: Location { line: 1, col: 39 }, to: Location { line: 1, col: 39 } }, kind: Punctuation("(") }
+Token { span: Span { from: Location { line: 1, col: 40 }, to: Location { line: 1, col: 41 } }, kind: Integer(30) }
+Token { span: Span { from: Location { line: 1, col: 42 }, to: Location { line: 1, col: 42 } }, kind: Punctuation(")") }
+```
+
+If we change the input string to an erroneous one like `"(412 + 321.65乱4) / 768.43入2 * 34e-1 - sin(30)"`:
+```
+Token { span: Span { from: Location { line: 1, col: 0 }, to: Location { line: 1, col: 0 } }, kind: Punctuation("(") }
+Token { span: Span { from: Location { line: 1, col: 1 }, to: Location { line: 1, col: 3 } }, kind: Integer(412) }
+Token { span: Span { from: Location { line: 1, col: 5 }, to: Location { line: 1, col: 5 } }, kind: Punctuation("+") }
+Token { span: Span { from: Location { line: 1, col: 7 }, to: Location { line: 1, col: 12 } }, kind: Float(321.65) }
+Error at Location { line: 1, col: 13 }: Empty input or input cannot be accepted by DFA
+```
+
 As you may see particle is different from other lexer gens in that it is not that "battery included"...
 You still need to define your own token types, and write functions that do conversions.
 But it offers great flexibility -- the lexer is only responsible for identifying where the token is,
