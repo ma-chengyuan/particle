@@ -1,8 +1,6 @@
-//! # Particle - A practice in writing parser gens
-//!
 //! A hobby project as I learn compiler theory as well as rust.
 //!
-//! ## Planned Features
+//! # Planned Features
 //!
 //! Currently there exists two major form of parser gens:
 //!
@@ -15,14 +13,14 @@
 //! 2. Fast. This is why I choose Rust as the language instead of Java or Go.
 //! 3. One-stop. Particle will cover both lexers and parsers. If possible, auto bindings to AST elements will be available too.
 //!
-//! ## Currently implemented Features
+//! # Currently implemented Features
 //!
 //! 1. Parse from simple regular expressions (no captures) to NFAs.
 //! 2. Subset construction algorithm to convert NFAs to DFAs.
 //! 3. Hopcroft algorithm for DFA minimization.
 //! 4. Lexer construction
 //!
-//! ## Example
+//! # Example
 //!
 //! This annotated example shows a simple lexer parsing simple expressions:
 //!
