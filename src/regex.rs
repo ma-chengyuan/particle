@@ -1,4 +1,21 @@
-//! Simple regex parsing
+//! Simple regular expression parsing.
+//!
+//! For simplicity, only a few key features of regex are supported:
+//! 1. Grouping `()`
+//! 2. Bracket `[...]` and `[^...]`
+//! 3. Branching `()`
+//! 4. Repetition `+` and `-` (`{m, n}` are not supported)
+//! 5. Optional `?`
+//! 6. ~~Escape characters~~
+//!
+//! This module contains only one HUGE function :)
+//!
+//! # Example
+//!
+//! ```rust
+//! use particle::regex::compile_regex;
+//! let nfa = compile_regex(r#"[1-9][0-9]*(\.[0-9]+)?([eE](\+|-)?[1-9][0-9]*)?"#).unwrap();
+//! ```
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;

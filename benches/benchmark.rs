@@ -2,7 +2,7 @@ use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
 
-use particle::automatons::{DFA, NFA};
+use particle::automatons::DFA;
 use particle::regex;
 
 fn bench_regex_to_nfa(c: &mut Criterion) {

@@ -1,4 +1,7 @@
-//! Lexer Stuffs
+//! Lexers.
+//!
+//! # Example
+//! See README! or `main.rs`
 
 use std::iter::Peekable;
 
@@ -33,7 +36,7 @@ pub struct LexerState<T: Iterator<Item=char>> {
     pub location: Location,
 }
 
-
+/// LexerState can be constructed from any character iterator
 impl<T> From<T> for LexerState<T> where T: Iterator<Item=char> {
     fn from(s: T) -> Self {
         LexerState {
@@ -44,14 +47,17 @@ impl<T> From<T> for LexerState<T> where T: Iterator<Item=char> {
 }
 
 impl<T> LexerState<T> where T: Iterator<Item=char> {
+    /// Whether we have reached EOF.
     pub fn eof(&mut self) -> bool {
         self.chars.peek().is_none()
     }
 
+    /// Current character the state holds, panics with message "End of file" if already EOF.
     pub fn current(&mut self) -> &char {
         self.chars.peek().expect("End of file")
     }
 
+    /// Move on to the next character
     pub fn next(&mut self) {
         if !self.eof() {
             let ch = self.chars.next().unwrap();
@@ -116,12 +122,14 @@ impl<T> Lexer<T> {
             if let Some(handler) = self.handlers.get(branch) {
                 Ok(handler(&token, Span::new(from, to)))
             } else {
-                self.next_token(state)
+                self.next_token(state) // If it is discarded?
             }
         }
     }
 }
 
+/// Macro that helps define a lexer
+/// The usage is shown in README
 #[macro_export] macro_rules! define_lexer {
     ($token_type:ty = $($re:expr => $handler:expr),+) => {{
         use particle::automatons::{NFA, DFA, BranchId};
