@@ -76,7 +76,7 @@ fn main() {
     );
     // Notice that when writing regular expressions down we did not use raw string literals, which is a common
     // practice, this is because I am simply too lazy to handle all types of escape characters -- just use that 
-    // of rust! Then the only thing you may feel uncomfortable is writing //s!
+    // of rust! Then the only thing you may feel uncomfortable is writing \\s!
 
     // We use a lexer state to store the context information
     // A LexerState can be constructed from any char iterators, the simplest being calling .chars() of a string
