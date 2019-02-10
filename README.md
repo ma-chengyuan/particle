@@ -86,7 +86,7 @@ fn main() {
     // Proceed until EOF
     while !state.eof() {
         match lexer.next_token(&mut state) {
-            Ok(token) => eprintln!("{:?}", token),
+            Ok(token) => eprintln!("{:?}", token.kind),
             Err(msg) => {
                 eprintln!("Error at {:?}: {}", state.location, msg);
                 break;
@@ -98,28 +98,28 @@ fn main() {
 
 Running this example yields:
 ```
-Token { span: Span { from: Location { line: 1, col: 0 }, to: Location { line: 1, col: 0 } }, kind: Punctuation("(") }
-Token { span: Span { from: Location { line: 1, col: 1 }, to: Location { line: 1, col: 3 } }, kind: Integer(412) }
-Token { span: Span { from: Location { line: 1, col: 5 }, to: Location { line: 1, col: 5 } }, kind: Punctuation("+") }
-Token { span: Span { from: Location { line: 1, col: 7 }, to: Location { line: 1, col: 13 } }, kind: Float(321.654) }
-Token { span: Span { from: Location { line: 1, col: 14 }, to: Location { line: 1, col: 14 } }, kind: Punctuation(")") }
-Token { span: Span { from: Location { line: 1, col: 16 }, to: Location { line: 1, col: 16 } }, kind: Punctuation("/") }
-Token { span: Span { from: Location { line: 1, col: 18 }, to: Location { line: 1, col: 24 } }, kind: Float(768.432) }
-Token { span: Span { from: Location { line: 1, col: 26 }, to: Location { line: 1, col: 26 } }, kind: Punctuation("*") }
-Token { span: Span { from: Location { line: 1, col: 28 }, to: Location { line: 1, col: 32 } }, kind: Float(3.4) }
-Token { span: Span { from: Location { line: 1, col: 34 }, to: Location { line: 1, col: 34 } }, kind: Punctuation("-") }
-Token { span: Span { from: Location { line: 1, col: 36 }, to: Location { line: 1, col: 38 } }, kind: Identifier("sin") }
-Token { span: Span { from: Location { line: 1, col: 39 }, to: Location { line: 1, col: 39 } }, kind: Punctuation("(") }
-Token { span: Span { from: Location { line: 1, col: 40 }, to: Location { line: 1, col: 41 } }, kind: Integer(30) }
-Token { span: Span { from: Location { line: 1, col: 42 }, to: Location { line: 1, col: 42 } }, kind: Punctuation(")") }
+Punctuation("(")
+Integer(412)
+Punctuation("+")
+Float(321.654)
+Punctuation(")")
+Punctuation("/")
+Float(768.432)
+Punctuation("*")
+Float(3.4)
+Punctuation("-")
+Identifier("sin")
+Punctuation("(")
+Integer(30)
+Punctuation(")")
 ```
 
 If we change the input string to an erroneous one like `"(412 + 321.65乱4) / 768.43入2 * 34e-1 - sin(30)"`:
 ```
-Token { span: Span { from: Location { line: 1, col: 0 }, to: Location { line: 1, col: 0 } }, kind: Punctuation("(") }
-Token { span: Span { from: Location { line: 1, col: 1 }, to: Location { line: 1, col: 3 } }, kind: Integer(412) }
-Token { span: Span { from: Location { line: 1, col: 5 }, to: Location { line: 1, col: 5 } }, kind: Punctuation("+") }
-Token { span: Span { from: Location { line: 1, col: 7 }, to: Location { line: 1, col: 12 } }, kind: Float(321.65) }
+Punctuation("(")
+Integer(412)
+Punctuation("+")
+Float(321.654)
 Error at Location { line: 1, col: 13 }: Empty input or input cannot be accepted by DFA
 ```
 

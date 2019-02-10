@@ -38,7 +38,7 @@ fn main() {
     );
     while !state.eof() {
         match lexer.next_token(&mut state) {
-            Ok(token) => eprintln!("{:?}", token),
+            Ok(token) => eprintln!("{:?}", token.kind),
             Err(msg) => {
                 eprintln!("Error at {:?}: {}", state.location, msg);
                 break;
