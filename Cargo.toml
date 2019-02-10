@@ -13,9 +13,6 @@ multimap = "0.4.0"
 rustc-hash = "1.0.1"
 utf8-ranges = "1.0.2"
 indexmap = "1.0.2"
-lazy_static = "1.2.0"
-syn = "0.15.26"
-quote = "0.6.11"
 
 [dev-dependencies]
 criterion = "0.1.2"
