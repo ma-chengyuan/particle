@@ -2,11 +2,13 @@
 
 A hobby project as I learn compiler theory as well as rust.
 
+一时模一时爽，一直摸一直爽！
+
 ## Planned Features
 
 Currently there exists two major form of parser gens:
 
-1. Parser gens like Yacc(or Bison), ANTLR and javacc needs developers to write an external syntax description file which will then be converted into source code by these generators. These generators are indeed fancy and powerful, but its relatively hard to customize.
+1. Parser gens like Yacc(or Bison), ANTLR and JavaCC needs developers to write an external syntax description file which will then be converted into source code by these generators. These generators are indeed fancy and powerful, but its relatively hard to customize.
 2. Parser combinators are good, intuitive and simple, they do not require developer to write external files, instead, syntax rules are encoded in the source code directly. That being said, since parser combinators are "combinators", each of the combinator cannot really have a big picture of the source being parsed, therefore error handling can be hard.
 
 Particle aims to be the hybrid of two forms listed above, to be exact, it is designed to be:
@@ -19,12 +21,12 @@ Particle aims to be the hybrid of two forms listed above, to be exact, it is des
 
 1. Parse from simple regular expressions (no captures) to NFAs.
 2. Subset construction algorithm to convert NFAs to DFAs.
-3. Hopcroft algorithm for NFA minimization.
-4. Lexer construction
+3. Hopcroft algorithm for DFA minimization.
+4. Lexer construction 
 
 ## Example
 
-This annotated example shows a simple lexer parsing expression:
+This annotated example shows a simple lexer parsing simple expressions:
 
 ```rust
 use particle::define_lexer;
@@ -136,5 +138,6 @@ in after => s, this should be improved after rust allows partial hygiene bending
 2. ~~Better interface to construct NFA~~
 3. Optimizing DFA performance
 4. ~~Char class in NFA implementation(Too Lazy)~~
-5. LL Parser gen
+5. LL Parser gen (or probably LR?)
 6. ~~DFA Minimization~~
+7. Wait for rust's macro (proc_macro and macro 2.0) to stabilize and expand DFA into real code in compilation
