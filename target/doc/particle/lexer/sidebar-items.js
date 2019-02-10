@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Lexer","The lexer type that parses some string and returns converted tokens of type `T`"],["LexerState","Holds the context"]],"type":[["TokenHandler","A token handler enables custom conversions from the original strings to user-defined token type enum. In this handler users can, for example:"]]});
