@@ -1,0 +1,1 @@
+initSidebarItems({"macro":[["define_lexer","Macro that helps define a lexer The usage is shown in README"]],"mod":[["automatons","DFAs and NFAs with related algorithms."],["lexer","Lexers."],["regex","Simple regular expression parsing."],["span","Structs that holds locational information."]]});

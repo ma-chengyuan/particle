@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `particle` crate."><meta name="keywords" content="rust, rustlang, rust-lang, particle"><title>particle - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate particle</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all particle's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'particle', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/particle/lib.rs.html#1-141' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>particle</a></span></h1><div class='docblock'><h1 id="particle---a-practice-in-writing-parser-gens" class="section-header"><a href="#particle---a-practice-in-writing-parser-gens">Particle - A practice in writing parser gens</a></h1>
+<p>A hobby project as I learn compiler theory as well as rust.</p>
+<h2 id="planned-features" class="section-header"><a href="#planned-features">Planned Features</a></h2>
+<p>Currently there exists two major form of parser gens:</p>
+<ol>
+<li>Parser gens like Yacc(or Bison), ANTLR and JavaCC needs developers to write an external syntax description file which will then be converted into source code by these generators. These generators are indeed fancy and powerful, but its relatively hard to customize.</li>
+<li>Parser combinators are good, intuitive and simple, they do not require developer to write external files, instead, syntax rules are encoded in the source code directly. That being said, since parser combinators are &quot;combinators&quot;, each of the combinator cannot really have a big picture of the source being parsed, therefore error handling can be hard.</li>
+</ol>
+<p>Particle aims to be the hybrid of two forms listed above, to be exact, it is designed to be:</p>
+<ol>
+<li>No external description files. Just put your syntax rules in the source code.</li>
+<li>Fast. This is why I choose Rust as the language instead of Java or Go.</li>
+<li>One-stop. Particle will cover both lexers and parsers. If possible, auto bindings to AST elements will be available too.</li>
+</ol>
+<h2 id="currently-implemented-features" class="section-header"><a href="#currently-implemented-features">Currently implemented Features</a></h2>
+<ol>
+<li>Parse from simple regular expressions (no captures) to NFAs.</li>
+<li>Subset construction algorithm to convert NFAs to DFAs.</li>
+<li>Hopcroft algorithm for DFA minimization.</li>
+<li>Lexer construction</li>
+</ol>
+<h2 id="example" class="section-header"><a href="#example">Example</a></h2>
+<p>This annotated example shows a simple lexer parsing simple expressions:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">particle</span>::<span class="ident">define_lexer</span>;
+<span class="kw">use</span> <span class="ident">particle</span>::<span class="ident">lexer</span>::<span class="ident">LexerState</span>;
+<span class="kw">use</span> <span class="ident">particle</span>::<span class="ident">span</span>::<span class="ident">Span</span>;
+
+<span class="doccomment">/// Four kinds of tokens</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">enum</span> <span class="ident">TokenKind</span> {
+    <span class="ident">Punctuation</span>(<span class="ident">String</span>),
+    <span class="ident">Integer</span>(<span class="ident">i32</span>),
+    <span class="ident">Float</span>(<span class="ident">f64</span>),
+    <span class="ident">Identifier</span>(<span class="ident">String</span>),
+}
+
+<span class="doccomment">/// A Token object with locational information (span)</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Token</span> {
+    <span class="ident">span</span>: <span class="ident">Span</span>,
+    <span class="ident">kind</span>: <span class="ident">TokenKind</span>,
+}
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="comment">// Define our lexer.</span>
+    <span class="comment">// `Token` below denotes the type of token this lexer is going to return.</span>
+    <span class="kw">let</span> <span class="ident">lexer</span> <span class="op">=</span> <span class="macro">define_lexer</span><span class="macro">!</span>(<span class="ident">Token</span> <span class="op">=</span>
+        <span class="comment">// Discard white spaces</span>
+        <span class="ident">discard</span> <span class="string">&quot;[ \n\r\t]+&quot;</span>,
+        <span class="comment">// Integers</span>
+        <span class="comment">// The expression after =&gt; is a function that takes the token string as</span>
+        <span class="comment">// well as the span and returns the result (of type specified above, or</span>
+        <span class="comment">// Token in this case).</span>
+        <span class="string">&quot;[1-9][0-9]*&quot;</span>                                   <span class="op">=&gt;</span> <span class="op">|</span><span class="ident">s</span>, <span class="ident">span</span><span class="op">|</span> <span class="ident">Token</span> { <span class="ident">span</span>,
+            <span class="ident">kind</span>: <span class="ident">TokenKind</span>::<span class="ident">Integer</span>(<span class="ident">s</span>.<span class="ident">parse</span>().<span class="ident">unwrap</span>()),
+        },
+        <span class="comment">// Floats with exponents</span>
+        <span class="comment">// Notice that the regex above also matches integers, which lead to ambiguity.</span>
+        <span class="comment">// Such ambiguity is solved by preferring rules that are defined first</span>
+        <span class="comment">// So you should somehow put identifier rules at last...</span>
+        <span class="string">&quot;[1-9][0-9]*(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?&quot;</span>   <span class="op">=&gt;</span> <span class="op">|</span><span class="ident">s</span>, <span class="ident">span</span><span class="op">|</span> <span class="ident">Token</span> { <span class="ident">span</span>,
+            <span class="ident">kind</span>: <span class="ident">TokenKind</span>::<span class="ident">Float</span>(<span class="ident">s</span>.<span class="ident">parse</span>().<span class="ident">unwrap</span>()),
+        },
+        <span class="comment">// Punctuations</span>
+        <span class="string">&quot;\\+|-|\\*|/|\\(|\\)&quot;</span>                           <span class="op">=&gt;</span> <span class="op">|</span><span class="ident">s</span>, <span class="ident">span</span><span class="op">|</span> <span class="ident">Token</span> { <span class="ident">span</span>,
+            <span class="ident">kind</span>: <span class="ident">TokenKind</span>::<span class="ident">Punctuation</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="ident">s</span>)),
+        },
+        <span class="comment">// Identifiers</span>
+        <span class="string">&quot;[a-zA-Z][_a-zA-Z0-9]*&quot;</span>                         <span class="op">=&gt;</span> <span class="op">|</span><span class="ident">s</span>, <span class="ident">span</span><span class="op">|</span> <span class="ident">Token</span> { <span class="ident">span</span>,
+            <span class="ident">kind</span>: <span class="ident">TokenKind</span>::<span class="ident">Identifier</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="ident">s</span>)),
+        }
+    );
+    <span class="comment">// Notice that when writing regular expressions down we did not use raw string</span>
+    <span class="comment">// literals, which is a common practice, this is because I am simply too lazy</span>
+    <span class="comment">// to handle all types of escape characters -- just use that of rust! Then the</span>
+    <span class="comment">// only thing you may feel uncomfortable is writing `\\`s!</span>
+
+    <span class="comment">// We use a lexer state to store the context information.</span>
+    <span class="comment">// A LexerState can be constructed from any char iterators, the simplest being</span>
+    <span class="comment">// calling .chars() of a string.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">LexerState</span>::<span class="ident">from</span>(
+        <span class="string">&quot;(412 + 321.654) / 768.432 * 34e-1 - sin(30)&quot;</span>.<span class="ident">chars</span>()
+    );
+    <span class="comment">// Proceed until EOF</span>
+    <span class="kw">while</span> <span class="op">!</span><span class="ident">state</span>.<span class="ident">eof</span>() {
+        <span class="kw">match</span> <span class="ident">lexer</span>.<span class="ident">next_token</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>) {
+            <span class="prelude-val">Ok</span>(<span class="ident">token</span>) <span class="op">=&gt;</span> <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">token</span>.<span class="ident">kind</span>),
+            <span class="prelude-val">Err</span>(<span class="ident">msg</span>) <span class="op">=&gt;</span> {
+                <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;Error at {:?}: {}&quot;</span>, <span class="ident">state</span>.<span class="ident">location</span>, <span class="ident">msg</span>);
+                <span class="kw">break</span>;
+            }
+        }
+    }
+}</pre></div>
+<p>Running this example yields:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="ident">Punctuation</span>(<span class="string">&quot;(&quot;</span>)
+<span class="ident">Integer</span>(<span class="number">412</span>)
+<span class="ident">Punctuation</span>(<span class="string">&quot;+&quot;</span>)
+<span class="ident">Float</span>(<span class="number">321.654</span>)
+<span class="ident">Punctuation</span>(<span class="string">&quot;)&quot;</span>)
+<span class="ident">Punctuation</span>(<span class="string">&quot;/&quot;</span>)
+<span class="ident">Float</span>(<span class="number">768.432</span>)
+<span class="ident">Punctuation</span>(<span class="string">&quot;*&quot;</span>)
+<span class="ident">Float</span>(<span class="number">3.4</span>)
+<span class="ident">Punctuation</span>(<span class="string">&quot;-&quot;</span>)
+<span class="ident">Identifier</span>(<span class="string">&quot;sin&quot;</span>)
+<span class="ident">Punctuation</span>(<span class="string">&quot;(&quot;</span>)
+<span class="ident">Integer</span>(<span class="number">30</span>)
+<span class="ident">Punctuation</span>(<span class="string">&quot;)&quot;</span>)</pre></div>
+<p>If we change the input string to an erroneous one like <code>&quot;(412 + 321.65乱4) / 768.43入2 * 34e-1 - sin(30)&quot;</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="ident">Punctuation</span>(<span class="string">&quot;(&quot;</span>)
+<span class="ident">Integer</span>(<span class="number">412</span>)
+<span class="ident">Punctuation</span>(<span class="string">&quot;+&quot;</span>)
+<span class="ident">Float</span>(<span class="number">321.654</span>)
+<span class="ident">Error</span> <span class="ident">at</span> <span class="ident">Location</span> { <span class="ident">line</span>: <span class="number">1</span>, <span class="ident">col</span>: <span class="number">13</span> }: <span class="ident">Empty</span> <span class="ident">input</span> <span class="ident">or</span> <span class="ident">input</span> <span class="ident">cannot</span> <span class="ident">be</span> <span class="ident">accepted</span> <span class="ident">by</span> <span class="ident">DFA</span></pre></div>
+<p>As you may see particle is different from other lexer gens in that it is not that &quot;battery included&quot;...
+You still need to define your own token types, and write functions that do conversions.
+But it offers great flexibility -- the lexer is only responsible for identifying where the token is,
+its up to you to decide how to deal with them.</p>
+<p>The <code>define_lexer</code> macro is still implemented in a somehow dumb way, and you can see some boilerplate code
+in after =&gt; s, this should be improved after rust allows partial hygiene bending in macros...</p>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table><tr class='module-item'><td><a class="mod" href="automatons/index.html" title='particle::automatons mod'>automatons</a></td><td class='docblock-short'><p>DFAs and NFAs with related algorithms.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="lexer/index.html" title='particle::lexer mod'>lexer</a></td><td class='docblock-short'><p>Lexers.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="regex/index.html" title='particle::regex mod'>regex</a></td><td class='docblock-short'><p>Simple regular expression parsing.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="span/index.html" title='particle::span mod'>span</a></td><td class='docblock-short'><p>Structs that holds locational information.</p>
+</td></tr></table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table><tr class='module-item'><td><a class="macro" href="macro.define_lexer.html" title='particle::define_lexer macro'>define_lexer</a></td><td class='docblock-short'><p>Macro that helps define a lexer
+The usage is shown in README</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "particle";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

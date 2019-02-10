@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Transition","Type of transitions."]],"struct":[["DFA","Deterministic Finite Automaton."],["NFA","Non-deterministic Finite Automaton."]],"type":[["BranchId",""],["StateId",""],["StateSet",""]]});
