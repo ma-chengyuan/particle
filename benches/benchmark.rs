@@ -1,6 +1,6 @@
-use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
+use criterion::Criterion;
 
 use particle::automatons::DFA;
 use particle::define_lexer;
@@ -67,16 +67,16 @@ fn bench_lexer(c: &mut Criterion) {
     }
 
     let lexer = define_lexer!(Token =
-        discard "[ \n\r\t]+",
-        "\"([^\"\\\\]|\\\\([\"\\/bfnrt]|u[0-9a-f][0-9a-f][0-9a-f][0-9a-f]))*\"" =>
+        discard r#"[ \n\r\t]+"#,
+        r#""([^"\\]|\\(["\\/bfnrt]|u[0-9a-f][0-9a-f][0-9a-f][0-9a-f]))*""# =>
             |s, span| Token::from(span, TokenKind::Str(String::from(s))),
-        "(-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?" =>
+        r#"-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][\+\-]?[0-9]+)?"# =>
             |s, span| Token::from(span, TokenKind::Number(s.parse().unwrap())),
-        "[{}\\[\\],:]" =>
+        r#"[{}\[\],:]"# =>
             |s, span| Token::from(span, TokenKind::Punctuation(String::from(s))),
-        "true|false" =>
+        r#"true|false"# =>
             |s, span| Token::from(span, TokenKind::Bool(s.parse().unwrap())),
-        "null"=>
+        r#"null"# =>
             |_, span| Token::from(span, TokenKind::Null)
     );
 

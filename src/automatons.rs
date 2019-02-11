@@ -1,39 +1,41 @@
-//! DFAs and NFAs with related algorithms.
+/*!
+DFAs and NFAs with related algorithms.
+
+# Example
+Consider the following regex matching float literals:
+```
+[1-9][0-9]*(\.[0-9]+)?([eE](\+|-)?[1-9][0-9]*)?
+```
+The NFA of this regex can be constructed as follow:
+```rust
+use particle::automatons::NFA;
+// Character close intervals are constructed by calling NFA::from(char tuple)
+// & and | are overloaded for simplicity
+// The integer part [1-9][0-9]*
+let int_part = NFA::from(('1', '9')) & NFA::from(('0', '9')).zero_or_more();
+// The float part \.[0-9]+
+let float_part = NFA::from('.') & NFA::from(('0', '9')).one_or_more();
+// Exponents [eE](\+|-)?[1-9][0-9]*
+let exp_part = (NFA::from('e') | NFA::from('E'))
+        & (NFA::from('+') | NFA::from('-')).optional()
+        & NFA::from(('1', '9'))
+        & (NFA::from(('0', '9')).zero_or_more());
+// Putting them together
+let nfa = int_part & float_part.optional() & exp_part.optional();
+```
+We can convert this NFA to DFA by:
+```
+let dfa = DFA::from(nfa);
+```
+and minimize it by:
+```
+let dfa = dfa.minimize();
+```
 //!
-//! # Example
-//! Consider the following regex matching float literals:
-//! ```
-//! [1-9][0-9]*(\.[0-9]+)?([eE](\+|-)?[1-9][0-9]*)?
-//! ```
-//! The NFA of this regex can be constructed as follow:
-//! ```rust
-//! use particle::automatons::NFA;
-//! // Character close intervals are constructed by calling NFA::from(char tuple)
-//! // & and | are overloaded for simplicity
-//! // The integer part [1-9][0-9]*
-//! let int_part = NFA::from(('1', '9')) & NFA::from(('0', '9')).zero_or_more();
-//! // The float part \.[0-9]+
-//! let float_part = NFA::from('.') & NFA::from(('0', '9')).one_or_more();
-//! // Exponents [eE](\+|-)?[1-9][0-9]*
-//! let exp_part = (NFA::from('e') | NFA::from('E'))
-//!         & (NFA::from('+') | NFA::from('-')).optional()
-//!         & NFA::from(('1', '9'))
-//!         & (NFA::from(('0', '9')).zero_or_more());
-//! // Putting them together
-//! let nfa = int_part & float_part.optional() & exp_part.optional();
-//! ```
-//! We can convert this NFA to DFA by:
-//! ```
-//! let dfa = DFA::from(nfa);
-//! ```
-//! and minimize it by:
-//! ```
-//! let dfa = dfa.minimize();
-//! ```
-//!
-//! # Debugging
-//! The debug traits are specially implemented on both NFA and DFA so that they dump the Graphviz
-//! script of the automaton.
+# Debugging
+The debug traits are specially implemented on both NFA and DFA so that they dump the Graphviz
+script of the automaton.
+*/
 
 use std::cmp;
 use std::collections::BTreeSet;

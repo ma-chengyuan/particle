@@ -1,13 +1,15 @@
-//! Lexers.
-//!
-//! # Example
-//! See README! or `main.rs`
+/*!
+Lexers.
+
+# Example
+See the home document page for details
+*/
 
 use std::iter::Peekable;
 
 use rustc_hash::FxHashMap;
 
-use crate::automatons::{BranchId, DFA, StateId};
+use crate::automatons::{BranchId, StateId, DFA};
 use crate::span::{Location, Span};
 
 /// A token handler enables custom conversions from the original strings
@@ -31,13 +33,16 @@ pub struct Lexer<T> {
 }
 
 /// Holds the context
-pub struct LexerState<T: Iterator<Item=char>> {
+pub struct LexerState<T: Iterator<Item = char>> {
     pub chars: Peekable<T>,
     pub location: Location,
 }
 
 /// LexerState can be constructed from any character iterator
-impl<T> From<T> for LexerState<T> where T: Iterator<Item=char> {
+impl<T> From<T> for LexerState<T>
+where
+    T: Iterator<Item = char>,
+{
     fn from(s: T) -> Self {
         LexerState {
             chars: s.peekable(),
@@ -46,7 +51,10 @@ impl<T> From<T> for LexerState<T> where T: Iterator<Item=char> {
     }
 }
 
-impl<T> LexerState<T> where T: Iterator<Item=char> {
+impl<T> LexerState<T>
+where
+    T: Iterator<Item = char>,
+{
     /// Whether we have reached EOF.
     pub fn eof(&mut self) -> bool {
         self.chars.peek().is_none()
@@ -73,7 +81,9 @@ impl<T> LexerState<T> where T: Iterator<Item=char> {
 
 impl<T> Lexer<T> {
     pub fn next_token<I>(&self, state: &mut LexerState<I>) -> Result<T, &'static str>
-        where I: Iterator<Item=char> {
+    where
+        I: Iterator<Item = char>,
+    {
         if state.eof() {
             return Err("End of file");
         }
@@ -130,7 +140,8 @@ impl<T> Lexer<T> {
 
 /// Macro that helps define a lexer
 /// The usage is shown in README
-#[macro_export] macro_rules! define_lexer {
+#[macro_export]
+macro_rules! define_lexer {
     ($token_type:ty = $($re:expr => $handler:expr),+) => {{
         use particle::automatons::{NFA, DFA, BranchId};
         use particle::regex::compile_regex;

@@ -1,6 +1,6 @@
 [package]
 name = "particle"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["alan20210202 <little_alanma@163.com>"]
 edition = "2018"
 
@@ -13,6 +13,7 @@ multimap = "0.4.0"
 rustc-hash = "1.0.1"
 utf8-ranges = "1.0.2"
 indexmap = "1.0.2"
+regex-syntax = "0.6.5"
 
 [dev-dependencies]
 criterion = "0.1.2"

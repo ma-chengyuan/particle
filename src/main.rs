@@ -29,30 +29,44 @@ impl Token {
 
 fn main() {
     let lexer = define_lexer!(Token =
-        discard "[ \n\r\t]+",
-        "\"([^\"\\\\]|\\\\([\"\\/bfnrt]|u[0-9a-f][0-9a-f][0-9a-f][0-9a-f]))*\"" =>
+        discard r#"[ \n\r\t]+"#,
+        r#""([^"\\]|\\(["\\/bfnrt]|u[0-9a-f][0-9a-f][0-9a-f][0-9a-f]))*""# =>
             |s, span| Token::from(span, TokenKind::Str(String::from(s))),
-        "(-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?" =>
+        r#"-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][\+\-]?[0-9]+)?"# =>
             |s, span| Token::from(span, TokenKind::Number(s.parse().unwrap())),
-        "[{}\\[\\],:]" =>
+        r#"[{}\[\],:]"# =>
             |s, span| Token::from(span, TokenKind::Punctuation(String::from(s))),
-        "true|false" =>
+        r#"true|false"# =>
             |s, span| Token::from(span, TokenKind::Bool(s.parse().unwrap())),
-        "null"=>
+        r#"null"# =>
             |_, span| Token::from(span, TokenKind::Null)
     );
 
-    let contents = fs::read_to_string("benches/large_json.json").unwrap();
+    let contents = r#"
+        {
+            "age": 29,
+            "name": "Glover Duran",
+            "gender": "male",
+            "company": "KINETICA",
+            "phone": "+1 (953) 497-3410",
+            "address": "368 Highland Place, Elbert, New Mexico, 262",
+            "registered": "2016-11-11T09:22:14 -08:00",
+            "latitude": -32.258953,
+            "longitude": 28.625491,
+            "tags": [
+                "sint",
+                "quis",
+                "eu"
+            ]
+        }"#;
     let mut state = LexerState::from(contents.chars());
-    let mut cnt = 0usize;
     while !state.eof() {
-        if let Ok(token) = lexer.next_token(&mut state) {
-            println!("{:?}", token.kind);
-            cnt += 1;
-        } else {
-            eprintln!("Error!");
-            break;
+        match lexer.next_token(&mut state) {
+            Ok(token) => println!("{:?}", token.kind),
+            Err(msg) => {
+                eprintln!("Error!");
+                break;
+            }
         }
     }
-    eprintln!("{}", cnt);
 }
