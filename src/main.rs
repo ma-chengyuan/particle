@@ -8,13 +8,11 @@ use particle::span::Span;
 
 #[derive(Debug)]
 enum TokenKind {
-    Whitespace,
+    Number(f64),
+    Str(String),
     Punctuation(String),
-    Integer(i32),
-    Float(f64),
-    Identifier(String),
-    Comment(String),
-    Unknown,
+    Bool(bool),
+    Null,
 }
 
 #[derive(Debug)]
@@ -23,39 +21,36 @@ struct Token {
     kind: TokenKind,
 }
 
+impl Token {
+    fn from(span: Span, kind: TokenKind) -> Self {
+        Token { span, kind }
+    }
+}
+
 fn main() {
     let lexer = define_lexer!(Token =
         discard "[ \n\r\t]+",
-        "[1-9][0-9]*"                                   => |s, span| Token { span,
-            kind: TokenKind::Integer(s.parse().unwrap()),
-        },
-        "[1-9][0-9]*(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?"   => |s, span| Token { span,
-            kind: TokenKind::Float(s.parse().unwrap()),
-        },
-        "\\+|-|\\*|/|\\(|\\)"                           => |s, span| Token { span,
-            kind: TokenKind::Punctuation(String::from(s)),
-        },
-        "[a-zA-Z][_a-zA-Z0-9]*"                         => |s, span| Token { span,
-            kind: TokenKind::Identifier(String::from(s)),
-        },
-        "/\\*[^\\*]*\\*+([^/\\*][^\\*]*\\*+)*/"         => |s, span| Token { span ,
-            kind: TokenKind::Comment(String::from(s)),
-        },
-        "//[^\n]*"                                      => |s, span| Token { span ,
-            kind: TokenKind::Comment(String::from(s)),
-        },
-        "[^ \n\r\t]+"                                            => |_, span| Token { span,
-            kind: TokenKind::Unknown,
-        }
+        "\"([^\"\\\\]|\\\\([\"\\/bfnrt]|u[0-9a-f][0-9a-f][0-9a-f][0-9a-f]))*\"" =>
+            |s, span| Token::from(span, TokenKind::Str(String::from(s))),
+        "(-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+\\-]?[0-9]+)?" =>
+            |s, span| Token::from(span, TokenKind::Number(s.parse().unwrap())),
+        "[{}\\[\\],:]" =>
+            |s, span| Token::from(span, TokenKind::Punctuation(String::from(s))),
+        "true|false" =>
+            |s, span| Token::from(span, TokenKind::Bool(s.parse().unwrap())),
+        "null"=>
+            |_, span| Token::from(span, TokenKind::Null)
     );
 
-    let contents = fs::read_to_string("benches/large_file.hpp").expect("IO Error!");
+    let contents = fs::read_to_string("benches/large_json.json").unwrap();
     let mut state = LexerState::from(contents.chars());
     let mut cnt = 0usize;
     while !state.eof() {
         if let Ok(token) = lexer.next_token(&mut state) {
+            println!("{:?}", token.kind);
             cnt += 1;
         } else {
+            eprintln!("Error!");
             break;
         }
     }
