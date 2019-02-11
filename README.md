@@ -138,14 +138,15 @@ The `define_lexer` macro is still implemented in a somehow dumb way, and you can
 in after => s, this should be improved after rust allows partial hygiene bending in macros... 
 
 ## Performance
-I did a rough benchmark on the speed of the lexer using [this large header from CImg](https://github.com/dtschump/CImg/blob/master/CImg.h).
+I did a rough benchmark on the speed of the lexer using [a json file](/benches/large_json.json).
 The benchmark code can be found under `/benches`.
 
 The benchmark is run on a i7-8550U and 16GB RAM.
 
-The header file is 2.99MB and contains 237149 tokens according to the definition in the benchmark. The lexer is able
-identify them all in an average of 169ms. 
-Therefore the estimated efficiency should be **1,400,000 tokens/s** or **17.7 MB/s**. Which should be sufficient in most cases.
+The header file is 155kB and contains 13401 tokens according to the definition in the benchmark. The lexer is able
+identify them all in an average of 8.041ms according to criterion. 
+Therefore the estimated efficiency should be around **1,666,583 tokens/s** or **18.9 MB/s**. Which should be sufficient in most cases.
+
 The benchmark here is still inaccurate, further improvement is needed.
 
 ## TODO List
